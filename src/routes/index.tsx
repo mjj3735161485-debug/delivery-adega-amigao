@@ -32,6 +32,31 @@ type Settings = {
 
 export const Route = createFileRoute("/")({
   component: Home,
+  head: () => ({
+    meta: [
+      { title: "Adega Amigão — Delivery de Bebidas Geladas" },
+      { name: "description", content: "Cervejas, vinhos, destilados e drinks entregues geladinhos na sua casa. Peça na Adega Amigão e confirme pelo WhatsApp." },
+      { property: "og:title", content: "Adega Amigão — Delivery de Bebidas Geladas" },
+      { property: "og:description", content: "Catálogo completo de cervejas, vinhos e destilados com entrega rápida." },
+      { property: "og:url", content: "https://sip-n-serve-bot.lovable.app/" },
+      { property: "og:type", content: "website" },
+    ],
+    links: [{ rel: "canonical", href: "https://sip-n-serve-bot.lovable.app/" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "LiquorStore",
+          name: "Adega Amigão",
+          url: "https://sip-n-serve-bot.lovable.app/",
+          priceRange: "$$",
+          servesCuisine: "Beverages",
+          telephone: "+55 12 99239-1723",
+        }),
+      },
+    ],
+  }),
   errorComponent: ({ error }) => (
     <div className="p-8 text-center text-muted-foreground">
       Não foi possível carregar o catálogo. {error.message}
@@ -189,9 +214,9 @@ function Home() {
                   )}
                 </div>
                 <div className="p-3 flex-1 flex flex-col">
-                  <h3 className="font-medium text-sm leading-tight line-clamp-2 min-h-10">
+                  <h2 className="font-medium text-sm leading-tight line-clamp-2 min-h-10">
                     {p.nome}
-                  </h3>
+                  </h2>
                   <div className="mt-auto pt-3 flex items-center justify-between gap-2">
                     <span className="font-display font-bold text-primary text-lg">
                       {brl(p.preco)}
@@ -199,6 +224,7 @@ function Home() {
                     <Button
                       size="icon"
                       className="h-9 w-9 rounded-full"
+                      aria-label={`Adicionar ${p.nome} ao carrinho`}
                       onClick={() => {
                         add({
                           id: p.id,
