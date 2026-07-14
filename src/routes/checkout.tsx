@@ -1,0 +1,238 @@
+import { useState } from "react";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { ArrowLeft, Loader2 } from "lucide-react";
+import { z } from "zod";
+import { supabase } from "@/integrations/supabase/client";
+import { useCart } from "@/lib/cart";
+import { brl, formatPhoneBR, onlyDigits } from "@/lib/format";
+import { SiteHeader } from "@/components/SiteHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@/components/ui/radio-group";
+import { toast } from "sonner";
+
+const schema = z.object({
+  cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
+  cliente_telefone: z.string().trim().refine((v) => onlyDigits(v).length >= 10, "Telefone inválido"),
+  endereco: z.string().trim().min(10, "Endereço muito curto").max(300),
+  pagamento: z.enum(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"]),
+  troco_para: z.string().optional(),
+  observacoes: z.string().max(300).optional(),
+});
+
+export const Route = createFileRoute("/checkout")({
+  component: Checkout,
+});
+
+function Checkout() {
+  const { items, subtotal, clear } = useCart();
+  const navigate = useNavigate();
+  const [submitting, setSubmitting] = useState(false);
+  const [form, setForm] = useState({
+    cliente_nome: "",
+    cliente_telefone: "",
+    endereco: "",
+    pagamento: "Pix" as z.infer<typeof schema>["pagamento"],
+    troco_para: "",
+    observacoes: "",
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("store_settings")
+        .select("nome, whatsapp, taxa_entrega")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const taxa = Number(settings?.taxa_entrega ?? 0);
+  const total = subtotal + taxa;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const parsed = schema.safeParse(form);
+    if (!parsed.success) {
+      toast.error(parsed.error.issues[0].message);
+      return;
+    }
+    if (items.length === 0) {
+      toast.error("Carrinho vazio");
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const { data: order, error } = await supabase
+        .from("orders")
+        .insert({
+          cliente_nome: parsed.data.cliente_nome,
+          cliente_telefone: onlyDigits(parsed.data.cliente_telefone),
+          endereco: parsed.data.endereco,
+          pagamento: parsed.data.pagamento,
+          troco_para: parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
+            ? Number(parsed.data.troco_para.replace(",", "."))
+            : null,
+          observacoes: parsed.data.observacoes || null,
+          subtotal,
+          taxa_entrega: taxa,
+          total,
+          status: "novo",
+        })
+        .select("id, numero")
+        .single();
+      if (error) throw error;
+
+      const { error: itErr } = await supabase.from("order_items").insert(
+        items.map((it) => ({
+          order_id: order.id,
+          product_id: it.id,
+          nome_snapshot: it.nome,
+          preco_snapshot: it.preco,
+          quantidade: it.quantidade,
+        })),
+      );
+      if (itErr) throw itErr;
+
+      // Mensagem WhatsApp
+      const linhas = [
+        `*Novo pedido #${order.numero}* 🍻`,
+        "",
+        ...items.map((i) => `• ${i.quantidade}x ${i.nome} — ${brl(i.preco * i.quantidade)}`),
+        "",
+        `Subtotal: ${brl(subtotal)}`,
+        `Entrega: ${brl(taxa)}`,
+        `*Total: ${brl(total)}*`,
+        "",
+        `👤 ${parsed.data.cliente_nome}`,
+        `📱 ${formatPhoneBR(parsed.data.cliente_telefone)}`,
+        `📍 ${parsed.data.endereco}`,
+        `💳 ${parsed.data.pagamento}${
+          parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
+            ? ` (troco para ${brl(Number(parsed.data.troco_para.replace(",", ".")))})`
+            : ""
+        }`,
+        ...(parsed.data.observacoes ? [`📝 ${parsed.data.observacoes}`] : []),
+      ];
+      const wa = `https://wa.me/${settings?.whatsapp ?? ""}?text=${encodeURIComponent(linhas.join("\n"))}`;
+      window.open(wa, "_blank");
+      clear();
+      navigate({ to: "/pedido/$numero", params: { numero: String(order.numero) } });
+    } catch (err) {
+      toast.error("Erro ao enviar pedido. Tente novamente.");
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="min-h-screen">
+        <SiteHeader />
+        <div className="mx-auto max-w-md py-24 px-4 text-center">
+          <h1 className="font-display text-2xl mb-2">Carrinho vazio</h1>
+          <p className="text-muted-foreground text-sm mb-6">
+            Adicione bebidas antes de finalizar.
+          </p>
+          <Button asChild>
+            <Link to="/">Ver catálogo</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen">
+      <SiteHeader />
+      <div className="mx-auto max-w-3xl px-4 py-6">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4">
+          <ArrowLeft className="h-4 w-4" /> Continuar comprando
+        </Link>
+        <h1 className="font-display text-3xl mb-6">Finalizar pedido</h1>
+
+        <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-[1fr_320px]">
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="nome">Nome *</Label>
+              <Input id="nome" value={form.cliente_nome}
+                onChange={(e) => setForm({ ...form, cliente_nome: e.target.value })} />
+            </div>
+            <div>
+              <Label htmlFor="tel">WhatsApp *</Label>
+              <Input id="tel" inputMode="tel" placeholder="(11) 99999-9999"
+                value={form.cliente_telefone}
+                onChange={(e) => setForm({ ...form, cliente_telefone: formatPhoneBR(e.target.value) })} />
+            </div>
+            <div>
+              <Label htmlFor="end">Endereço de entrega *</Label>
+              <Textarea id="end" rows={3} placeholder="Rua, número, complemento, bairro"
+                value={form.endereco}
+                onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
+            </div>
+            <div>
+              <Label>Pagamento na entrega *</Label>
+              <RadioGroup
+                value={form.pagamento}
+                onValueChange={(v) => setForm({ ...form, pagamento: v as typeof form.pagamento })}
+                className="grid grid-cols-2 gap-2 mt-2"
+              >
+                {(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"] as const).map((p) => (
+                  <Label key={p} className="flex items-center gap-2 border border-border rounded-md p-3 cursor-pointer hover:border-primary/50">
+                    <RadioGroupItem value={p} /> {p}
+                  </Label>
+                ))}
+              </RadioGroup>
+            </div>
+            {form.pagamento === "Dinheiro" && (
+              <div>
+                <Label htmlFor="troco">Troco para (opcional)</Label>
+                <Input id="troco" inputMode="decimal" placeholder="Ex: 100"
+                  value={form.troco_para}
+                  onChange={(e) => setForm({ ...form, troco_para: e.target.value })} />
+              </div>
+            )}
+            <div>
+              <Label htmlFor="obs">Observações</Label>
+              <Textarea id="obs" rows={2} value={form.observacoes}
+                onChange={(e) => setForm({ ...form, observacoes: e.target.value })} />
+            </div>
+          </div>
+
+          <aside className="bg-card border border-border rounded-xl p-4 h-fit space-y-4 md:sticky md:top-20">
+            <h2 className="font-display text-lg">Resumo</h2>
+            <div className="space-y-2 text-sm max-h-64 overflow-y-auto">
+              {items.map((i) => (
+                <div key={i.id} className="flex justify-between gap-2">
+                  <span className="text-muted-foreground">{i.quantidade}× {i.nome}</span>
+                  <span>{brl(i.preco * i.quantidade)}</span>
+                </div>
+              ))}
+            </div>
+            <div className="border-t border-border pt-3 text-sm space-y-1">
+              <div className="flex justify-between"><span>Subtotal</span><span>{brl(subtotal)}</span></div>
+              <div className="flex justify-between"><span>Entrega</span><span>{brl(taxa)}</span></div>
+              <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
+            </div>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+              {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Enviar pelo WhatsApp
+            </Button>
+            <p className="text-[11px] text-muted-foreground text-center">
+              O pedido abre no WhatsApp da loja para confirmação.
+            </p>
+          </aside>
+        </form>
+      </div>
+    </div>
+  );
+}
