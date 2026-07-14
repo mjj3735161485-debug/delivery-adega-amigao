@@ -13,6 +13,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidoNumeroRouteImport } from './routes/pedido.$numero'
+import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
 
 const CheckoutRoute = CheckoutRouteImport.update({
   id: '/checkout',
@@ -34,17 +35,24 @@ const PedidoNumeroRoute = PedidoNumeroRouteImport.update({
   path: '/pedido/$numero',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminPedidosRoute = AdminPedidosRouteImport.update({
+  id: '/admin/pedidos',
+  path: '/admin/pedidos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/admin/pedidos': typeof AdminPedidosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/admin/pedidos': typeof AdminPedidosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
 }
 export interface FileRoutesById {
@@ -52,20 +60,28 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/admin/pedidos': typeof AdminPedidosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/checkout' | '/pedido/$numero'
+  fullPaths: '/' | '/auth' | '/checkout' | '/admin/pedidos' | '/pedido/$numero'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/checkout' | '/pedido/$numero'
-  id: '__root__' | '/' | '/auth' | '/checkout' | '/pedido/$numero'
+  to: '/' | '/auth' | '/checkout' | '/admin/pedidos' | '/pedido/$numero'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/checkout'
+    | '/admin/pedidos'
+    | '/pedido/$numero'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CheckoutRoute: typeof CheckoutRoute
+  AdminPedidosRoute: typeof AdminPedidosRoute
   PedidoNumeroRoute: typeof PedidoNumeroRoute
 }
 
@@ -99,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PedidoNumeroRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/pedidos': {
+      id: '/admin/pedidos'
+      path: '/admin/pedidos'
+      fullPath: '/admin/pedidos'
+      preLoaderRoute: typeof AdminPedidosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -106,6 +129,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CheckoutRoute: CheckoutRoute,
+  AdminPedidosRoute: AdminPedidosRoute,
   PedidoNumeroRoute: PedidoNumeroRoute,
 }
 export const routeTree = rootRouteImport
