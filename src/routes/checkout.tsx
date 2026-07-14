@@ -106,36 +106,30 @@ function Checkout() {
     }
     setSubmitting(true);
     try {
-      const { data: order, error } = await supabase
-        .from("orders")
-        .insert({
+      const { data: rpcData, error } = await supabase.rpc("place_order", {
+        _order: {
           cliente_nome: parsed.data.cliente_nome,
           cliente_telefone: onlyDigits(parsed.data.cliente_telefone),
           endereco: parsed.data.endereco,
           pagamento: parsed.data.pagamento,
-          troco_para: parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
-            ? Number(parsed.data.troco_para.replace(",", "."))
-            : null,
-          observacoes: parsed.data.observacoes || null,
-          subtotal,
-          taxa_entrega: taxa,
-          total,
-          status: "novo",
-        })
-        .select("id, numero")
-        .single();
-      if (error) throw error;
-
-      const { error: itErr } = await supabase.from("order_items").insert(
-        items.map((it) => ({
-          order_id: order.id,
+          troco_para:
+            parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
+              ? String(Number(parsed.data.troco_para.replace(",", ".")))
+              : "",
+          observacoes: parsed.data.observacoes || "",
+          subtotal: String(subtotal),
+          taxa_entrega: String(taxa),
+          total: String(total),
+        },
+        _items: items.map((it) => ({
           product_id: it.id,
           nome_snapshot: it.nome,
-          preco_snapshot: it.preco,
+          preco_snapshot: String(it.preco),
           quantidade: it.quantidade,
         })),
-      );
-      if (itErr) throw itErr;
+      });
+      if (error) throw error;
+      const order = rpcData as { numero: number; token: string };
 
       // Mensagem WhatsApp
       const linhas = [
@@ -160,7 +154,11 @@ function Checkout() {
       const wa = `https://wa.me/${settings?.whatsapp ?? ""}?text=${encodeURIComponent(linhas.join("\n"))}`;
       window.open(wa, "_blank");
       clear();
-      navigate({ to: "/pedido/$numero", params: { numero: String(order.numero) } });
+      navigate({
+        to: "/pedido/$numero",
+        params: { numero: String(order.numero) },
+        search: { t: order.token },
+      });
     } catch (err) {
       toast.error("Erro ao enviar pedido. Tente novamente.");
       console.error(err);
