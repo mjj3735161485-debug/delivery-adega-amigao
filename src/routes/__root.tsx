@@ -79,10 +79,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Bar do Zé — Delivery de Bebidas" },
-      { name: "description", content: "Peça cervejas geladas, vinhos, destilados e drinks com entrega rápida. Pedido direto no WhatsApp." },
-      { property: "og:title", content: "Bar do Zé — Delivery de Bebidas" },
-      { property: "og:description", content: "Cervejas, vinhos, destilados e drinks entregues geladinhos na sua casa." },
+      { title: "Adega Amigão — Delivery de Bebidas" },
+      { name: "description", content: "Peça cervejas geladas, vinhos, destilados e drinks com entrega rápida. Pedido confirmado direto no WhatsApp da Adega Amigão." },
+      { property: "og:site_name", content: "Adega Amigão" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -95,6 +94,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@600;700;800&display=swap" },
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Adega Amigão",
+          url: "https://sip-n-serve-bot.lovable.app",
+          logo: "https://sip-n-serve-bot.lovable.app/favicon.ico",
+        }),
+      },
     ],
   }),
   shellComponent: RootShell,
