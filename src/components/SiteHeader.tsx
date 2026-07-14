@@ -16,25 +16,27 @@ export function SiteHeader() {
       return data as { nome: string; logo_url: string | null };
     },
   });
-  const nome = s?.nome ?? "Logo da Adega";
+  const nome = s?.nome ?? "Adega Amigão";
   const logo = s?.logo_url;
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-3">
           {logo ? (
-            <img src={logo} alt={nome} className="h-9 w-9 rounded-full object-cover border border-primary/40" />
+            <img src={logo} alt={nome} className="h-12 w-auto max-w-[180px] object-contain" />
           ) : (
-            <span className="h-9 w-9 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center">
-              <Wine className="h-4 w-4 text-primary" />
-            </span>
+            <>
+              <span className="h-9 w-9 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center">
+                <Wine className="h-4 w-4 text-primary" />
+              </span>
+              <div className="leading-tight">
+                <p className="font-display text-lg font-bold">{nome}</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Delivery de bebidas
+                </p>
+              </div>
+            </>
           )}
-          <div className="leading-tight">
-            <p className="font-display text-lg font-bold">{nome}</p>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
-              Delivery de bebidas
-            </p>
-          </div>
         </Link>
         <CartSheet />
       </div>
