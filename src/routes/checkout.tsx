@@ -30,6 +30,17 @@ const schema = z.object({
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
+  head: () => ({
+    meta: [
+      { title: "Finalizar Pedido — Adega Amigão" },
+      { name: "description", content: "Confirme seus dados de entrega e forma de pagamento para receber suas bebidas geladas da Adega Amigão." },
+      { property: "og:title", content: "Finalizar Pedido — Adega Amigão" },
+      { property: "og:description", content: "Checkout do delivery de bebidas da Adega Amigão." },
+      { property: "og:url", content: "https://sip-n-serve-bot.lovable.app/checkout" },
+      { name: "robots", content: "noindex" },
+    ],
+    links: [{ rel: "canonical", href: "https://sip-n-serve-bot.lovable.app/checkout" }],
+  }),
 });
 
 function Checkout() {
