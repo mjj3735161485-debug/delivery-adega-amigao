@@ -158,6 +158,12 @@ function AdminPedidos() {
               Auto-imprimir
             </label>
             <Button asChild variant="outline" size="sm">
+              <Link to="/admin/produtos">Produtos</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/config">Config</Link>
+            </Button>
+            <Button asChild variant="ghost" size="sm">
               <Link to="/">Loja</Link>
             </Button>
             <Button variant="ghost" size="sm" onClick={logout}>

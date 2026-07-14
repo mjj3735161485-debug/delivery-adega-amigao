@@ -190,6 +190,7 @@ export type Database = {
           endereco: string
           horario: string
           id: number
+          logo_url: string | null
           nome: string
           taxa_entrega: number
           updated_at: string
@@ -200,6 +201,7 @@ export type Database = {
           endereco?: string
           horario?: string
           id?: number
+          logo_url?: string | null
           nome?: string
           taxa_entrega?: number
           updated_at?: string
@@ -210,6 +212,7 @@ export type Database = {
           endereco?: string
           horario?: string
           id?: number
+          logo_url?: string | null
           nome?: string
           taxa_entrega?: number
           updated_at?: string
