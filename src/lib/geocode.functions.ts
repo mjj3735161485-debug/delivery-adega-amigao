@@ -3,6 +3,10 @@ import { z } from "zod";
 
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 
+export type ReverseGeocodeResult =
+  | { ok: true; address: string }
+  | { ok: false; code: "not_configured" | "no_results" | "upstream" };
+
 export const reverseGeocode = createServerFn({ method: "POST" })
   .inputValidator((data) =>
     z
@@ -12,30 +16,52 @@ export const reverseGeocode = createServerFn({ method: "POST" })
       })
       .parse(data),
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<ReverseGeocodeResult> => {
     const lovableKey = process.env.LOVABLE_API_KEY;
     const gmapsKey = process.env.GOOGLE_MAPS_API_KEY;
     if (!lovableKey || !gmapsKey) {
-      throw new Error("Google Maps não configurado");
+      console.error("Google Maps connector not configured");
+      return { ok: false, code: "not_configured" };
     }
-    const url = `${GATEWAY_URL}/maps/api/geocode/json?latlng=${data.lat},${data.lng}&language=pt-BR&region=br`;
-    const res = await fetch(url, {
-      headers: {
-        Authorization: `Bearer ${lovableKey}`,
-        "X-Connection-Api-Key": gmapsKey,
-      },
-    });
-    if (!res.ok) {
-      const body = await res.text();
-      console.error("Geocode failed", res.status, body);
-      throw new Error("Falha ao obter endereço");
-    }
-    const json = (await res.json()) as {
-      status: string;
-      results: Array<{ formatted_address: string }>;
+    const base = `${GATEWAY_URL}/maps/api/geocode/json?latlng=${data.lat},${data.lng}&language=pt-BR&region=br`;
+    const headers = {
+      Authorization: `Bearer ${lovableKey}`,
+      "X-Connection-Api-Key": gmapsKey,
     };
-    if (json.status !== "OK" || !json.results?.length) {
-      throw new Error("Endereço não encontrado para esta localização");
+
+    async function call(url: string) {
+      const res = await fetch(url, { headers });
+      if (!res.ok) {
+        const body = await res.text();
+        console.error("Geocode HTTP failure", res.status, body);
+        if (res.status === 403) {
+          try {
+            const parsed = JSON.parse(body) as {
+              error?: { details?: Array<{ reason?: string }> };
+            };
+            const reason = parsed?.error?.details?.find((d) => d.reason)?.reason;
+            console.error("Geocode 403 reason:", reason);
+          } catch {
+            // ignore parse error
+          }
+        }
+        return null;
+      }
+      return (await res.json()) as {
+        status: string;
+        results: Array<{ formatted_address: string }>;
+      };
     }
-    return { address: json.results[0].formatted_address };
+
+    // Priorizar endereço com rua; se vazio, tenta sem filtro
+    let json = await call(`${base}&result_type=street_address|route|premise`);
+    if (!json) return { ok: false, code: "upstream" };
+    if (json.status === "ZERO_RESULTS" || !json.results?.length) {
+      json = await call(base);
+      if (!json) return { ok: false, code: "upstream" };
+    }
+    if (json.status !== "OK" || !json.results?.length) {
+      return { ok: false, code: "no_results" };
+    }
+    return { ok: true, address: json.results[0].formatted_address };
   });
