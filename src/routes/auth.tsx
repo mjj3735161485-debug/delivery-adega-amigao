@@ -57,7 +57,7 @@ function AuthPage() {
             <Wine className="h-4 w-4 text-primary" />
           </span>
           <div>
-            <p className="font-display text-lg font-bold leading-none">Bar do Zé</p>
+            <p className="font-display text-lg font-bold leading-none">Adega Amigão</p>
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               Painel da loja
             </p>
