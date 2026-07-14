@@ -39,6 +39,7 @@ function AdminConfig() {
   const qc = useQueryClient();
   const [form, setForm] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const { data } = useQuery({
     queryKey: ["admin", "settings"],
