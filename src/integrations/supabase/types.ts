@@ -85,6 +85,7 @@ export type Database = {
       }
       orders: {
         Row: {
+          access_token: string
           cliente_nome: string
           cliente_telefone: string
           created_at: string
@@ -101,6 +102,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          access_token?: string
           cliente_nome: string
           cliente_telefone: string
           created_at?: string
@@ -117,6 +119,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          access_token?: string
           cliente_nome?: string
           cliente_telefone?: string
           created_at?: string
@@ -246,6 +249,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_order_by_token: {
+        Args: { _numero: number; _token: string }
+        Returns: Json
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -253,6 +260,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      place_order: { Args: { _items: Json; _order: Json }; Returns: Json }
     }
     Enums: {
       app_role: "admin"
