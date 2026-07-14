@@ -8,26 +8,32 @@ import { brl } from "@/lib/format";
 
 export const Route = createFileRoute("/pedido/$numero")({
   component: PedidoConfirmacao,
+  validateSearch: (s: Record<string, unknown>) => ({
+    t: typeof s.t === "string" ? s.t : undefined,
+  }),
 });
 
 function PedidoConfirmacao() {
   const { numero } = Route.useParams();
+  const { t } = Route.useSearch();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["pedido", numero],
+    queryKey: ["pedido", numero, t],
     queryFn: async () => {
-      const { data: order, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("numero", Number(numero))
-        .maybeSingle();
+      if (!t) return null;
+      const { data, error } = await supabase.rpc("get_order_by_token", {
+        _numero: Number(numero),
+        _token: t,
+      });
       if (error) throw error;
-      if (!order) return null;
-      const { data: itens } = await supabase
-        .from("order_items")
-        .select("*")
-        .eq("order_id", order.id);
-      return { order, itens: itens ?? [] };
+      if (!data) return null;
+      const o = data as {
+        cliente_nome: string;
+        endereco: string;
+        total: number;
+        itens: { id: string; nome_snapshot: string; preco_snapshot: number; quantidade: number }[];
+      };
+      return { order: o, itens: o.itens };
     },
   });
 
