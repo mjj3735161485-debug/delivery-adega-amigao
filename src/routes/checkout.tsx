@@ -62,9 +62,16 @@ function Checkout() {
   const taxa = Number(settings?.taxa_entrega ?? 0);
   const total = subtotal + taxa;
 
+  function focusEndereco() {
+    setTimeout(() => document.getElementById("end")?.focus(), 50);
+  }
+
   async function handleUseLocation() {
     if (!("geolocation" in navigator)) {
-      toast.error("Seu navegador não suporta localização");
+      toast.error("Seu navegador não suporta localização.", {
+        description: "Digite o endereço manualmente no campo abaixo.",
+      });
+      focusEndereco();
       return;
     }
     setLocating(true);
@@ -75,19 +82,59 @@ function Checkout() {
           timeout: 10000,
         }),
       );
-      const { address } = await geocode({
+      const result = await geocode({
         data: { lat: pos.coords.latitude, lng: pos.coords.longitude },
       });
-      setForm((f) => ({ ...f, endereco: address }));
-      toast.success("Endereço preenchido — confira o número e complemento");
+      if (result.ok) {
+        setForm((f) => ({ ...f, endereco: result.address }));
+        toast.success("Endereço preenchido — confira o número e complemento.");
+        focusEndereco();
+        return;
+      }
+      if (result.code === "no_results") {
+        const coords = `Lat: ${pos.coords.latitude.toFixed(5)}, Lng: ${pos.coords.longitude.toFixed(5)} — `;
+        setForm((f) => ({ ...f, endereco: f.endereco || coords }));
+        toast.error("Não encontramos um endereço para esse ponto.", {
+          description: "Digite rua, número e ponto de referência para o entregador.",
+          duration: 6000,
+        });
+      } else if (result.code === "not_configured") {
+        toast.error("Serviço de mapas indisponível no momento.", {
+          description: "Digite o endereço manualmente.",
+        });
+      } else {
+        toast.error("Não conseguimos consultar o mapa agora.", {
+          description: "Tente de novo em instantes ou digite o endereço.",
+        });
+      }
+      focusEndereco();
     } catch (err: unknown) {
-      const msg =
+      const code =
         err && typeof err === "object" && "code" in err
-          ? "Permita o acesso à localização para usar este recurso"
-          : err instanceof Error
-            ? err.message
-            : "Não foi possível obter sua localização";
-      toast.error(msg);
+          ? (err as GeolocationPositionError).code
+          : null;
+      if (code === 1) {
+        toast.error("Permissão de localização negada.", {
+          description:
+            "Ative a localização nas configurações do navegador ou digite o endereço abaixo.",
+          duration: 8000,
+        });
+      } else if (code === 2) {
+        toast.error("Não conseguimos pegar seu GPS agora.", {
+          description: "Verifique se a localização está ativa ou digite o endereço.",
+          duration: 6000,
+        });
+      } else if (code === 3) {
+        toast.error("A localização demorou demais para responder.", {
+          description: "Tente novamente ou digite o endereço manualmente.",
+          duration: 6000,
+        });
+      } else {
+        toast.error("Não foi possível obter sua localização.", {
+          description: "Digite o endereço no campo abaixo.",
+        });
+      }
+      focusEndereco();
     } finally {
       setLocating(false);
     }
@@ -228,8 +275,8 @@ function Checkout() {
               <Textarea id="end" rows={3} placeholder="Rua, número, complemento, bairro"
                 value={form.endereco}
                 onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Dica: use o GPS para pegar a rua e adicione o número + complemento.
+              <p className="text-[11px] text-muted-foreground mt-1" aria-live="polite">
+                Se o GPS não funcionar, é só digitar rua, número, bairro e ponto de referência.
               </p>
             </div>
             <div>

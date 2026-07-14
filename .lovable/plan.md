@@ -1,72 +1,33 @@
-## Visão geral
+## Objetivo
 
-Site em português (BR) para delivery de bebidas. Cliente navega catálogo, adiciona ao carrinho, informa endereço/nome/telefone, e o pedido é enviado para o WhatsApp da loja via link `wa.me`. Um painel admin no PC da loja escuta novos pedidos em tempo real e dispara impressão automática do cupom.
+Deixar o botão "📍 Usar minha localização" tolerante a falha: hoje se o GPS for negado ou o Google Maps não retornar endereço, aparece só um toast e o campo fica vazio. Vou classificar os erros, mostrar mensagens específicas e sempre manter o campo de endereço editável como fallback.
 
-Backend via Lovable Cloud (banco de dados + realtime + auth do admin).
+## Cenários tratados
 
-## Fluxo do cliente
+1. **Navegador sem GPS** → toast: "Seu navegador não suporta localização. Digite o endereço manualmente."
+2. **Permissão negada** (`GeolocationPositionError.PERMISSION_DENIED`) → toast persistente com instrução: "Permissão de localização negada. Ative nas configurações do navegador ou digite o endereço abaixo." + foco no textarea.
+3. **GPS indisponível / timeout** (`POSITION_UNAVAILABLE` / `TIMEOUT`) → toast: "Não conseguimos pegar seu GPS agora. Verifique se está ativo ou digite o endereço."
+4. **Reverse geocoding sem resultado** (status ≠ OK) → toast: "Não encontramos um endereço para esse ponto. Digite manualmente." + preenche o campo com as coordenadas (`Lat: -23.5, Lng: -46.6 — descrever ponto de referência`) como ponto de partida.
+5. **Falha de rede / gateway 5xx** → toast: "Serviço de mapas indisponível. Digite o endereço." (mantém o botão habilitado para nova tentativa).
+6. **Chave restrita (403 `API_KEY_HTTP_REFERRER_BLOCKED` / `API_KEY_SERVICE_BLOCKED`)** → toast genérico ao cliente + `console.error` detalhado para o admin.
 
-1. Home com hero, categorias (Cervejas, Vinhos, Destilados, Drinks, Sem álcool, Gelo/Extras) e produtos em destaque
-2. Catálogo com filtro por categoria e busca
-3. Card do produto com foto, preço, descrição, botão "Adicionar"
-4. Carrinho lateral (sheet) com quantidades, subtotal, taxa de entrega, total
-5. Checkout: nome, telefone, endereço completo, forma de pagamento na entrega (Dinheiro / Pix / Cartão débito / Cartão crédito), troco se dinheiro, observações
-6. Ao confirmar:
-   - Pedido salvo no banco com status `novo`
-   - Redireciona para `https://wa.me/<numero>?text=<pedido formatado>` em nova aba
-   - Tela de confirmação com número do pedido
+Sempre: campo `endereco` continua editável, dica embaixo do textarea reforça "Você pode digitar o endereço mesmo sem GPS."
 
-## Fluxo do admin (loja)
+## Mudanças técnicas
 
-1. `/admin/login` — login com email/senha (Lovable Cloud auth, role `admin`)
-2. `/admin/pedidos` — lista em tempo real (Supabase realtime), status: novo → em preparo → saiu para entrega → entregue / cancelado
-3. Cada pedido novo:
-   - Toca som de alerta
-   - Abre automaticamente a janela de impressão do navegador (`window.print()`) com layout de cupom 80mm
-   - Toggle "Auto-imprimir" (liga/desliga; salvo em localStorage)
-4. `/admin/produtos` — CRUD de produtos (nome, categoria, preço, foto, estoque on/off, destaque)
-5. `/admin/config` — telefone WhatsApp da loja, nome, endereço, taxa de entrega, bairros atendidos, horário de funcionamento
+### `src/lib/geocode.functions.ts`
+- Retornar um objeto discriminado `{ ok: true, address }` ou `{ ok: false, code: "no_results" | "denied" | "upstream" }` em vez de `throw` para casos esperados. `throw` fica só para erros inesperados.
+- Tratar 403 lendo `error.details[].reason` conforme docs do connector e logando o motivo.
+- Enviar `result_type=street_address|route` para priorizar endereços úteis (fallback para primeiro resultado se vazio).
 
-## Modelo de dados (Lovable Cloud)
+### `src/routes/checkout.tsx`
+- `handleUseLocation`: mapear `GeolocationPositionError.code` para as mensagens acima; usar `toast.error` com `duration: 6000` quando exige ação do usuário.
+- Ao receber `{ ok: false }` do server fn, aplicar o fallback correspondente (mensagem + coordenadas no campo quando `no_results`).
+- Adicionar `aria-live` no bloco de dica abaixo do textarea para leitores de tela verem o novo estado.
+- Atualizar o texto do helper: "Se o GPS não funcionar, é só digitar rua, número, bairro e ponto de referência."
 
-- `categories` — id, nome, slug, ordem
-- `products` — id, category_id, nome, descrição, preço, imagem_url, disponivel, destaque
-- `orders` — id, numero (sequencial), cliente_nome, cliente_telefone, endereco, pagamento, troco_para, observacoes, subtotal, taxa_entrega, total, status, created_at
-- `order_items` — id, order_id, product_id, nome_snapshot, preco_snapshot, quantidade
-- `store_settings` — singleton: whatsapp, nome, endereço, taxa_entrega, horario, ativo
-- `user_roles` + enum `app_role` (padrão Lovable) para gate do admin
+## Fora do escopo
 
-RLS: leitura pública de `categories`, `products` disponíveis e `store_settings`; escrita de `orders`/`order_items` liberada para anon (checkout público); tudo em admin restrito a `has_role(auth.uid(), 'admin')`.
-
-## Design
-
-Direção visual: bar moderno noturno, escuro elegante — fundo grafite quase preto, acento âmbar/dourado (whisky), tipografia display serifada nos títulos + sans-serif geométrica no corpo. Cards de produto com foto grande, preço em destaque, microanimações no adicionar. Mobile-first (maioria vai pedir pelo celular).
-
-## Rotas
-
-```text
-/                      home + catálogo
-/produto/$slug         detalhe (opcional na v1)
-/checkout              formulário + resumo
-/pedido/$numero        confirmação
-/admin/login
-/_authenticated/admin/pedidos
-/_authenticated/admin/produtos
-/_authenticated/admin/config
-```
-
-## Detalhes técnicos
-
-- TanStack Start + TanStack Query; carrinho em Zustand persistido em localStorage
-- Realtime: `supabase.channel('orders').on('postgres_changes', ...)` no painel admin
-- Impressão: componente `<OrderReceipt>` renderizado oculto; ao chegar pedido novo, injeta no DOM e chama `window.print()` com `@media print` isolando só o cupom (largura 80mm, fonte monoespaçada)
-- Mensagem WhatsApp: template formatado com emojis, itens, endereço, total e link do pedido
-- Números sequenciais de pedido via sequence no Postgres
-- Placeholders: nome "Bar do Zé", WhatsApp `5511999999999`, catálogo seed com ~15 bebidas de exemplo (imagens geradas)
-
-## O que fica de fora da v1
-
-- Pagamento online (Stripe) — pagamento é sempre na entrega
-- API oficial WhatsApp — usamos `wa.me`
-- App mobile nativo
-- Cálculo de frete por distância (usa taxa fixa configurável)
+- Autocomplete de endereço via Places API (fica para outra iteração).
+- Salvar coordenadas junto do pedido (hoje o admin recebe só o texto).
+- Mudanças no painel admin.
