@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Loader2, MapPin } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
@@ -16,6 +16,8 @@ import {
   RadioGroupItem,
 } from "@/components/ui/radio-group";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { reverseGeocode } from "@/lib/geocode.functions";
 
 const schema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
@@ -34,6 +36,8 @@ function Checkout() {
   const { items, subtotal, clear } = useCart();
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const geocode = useServerFn(reverseGeocode);
   const [form, setForm] = useState({
     cliente_nome: "",
     cliente_telefone: "",
@@ -57,6 +61,37 @@ function Checkout() {
 
   const taxa = Number(settings?.taxa_entrega ?? 0);
   const total = subtotal + taxa;
+
+  async function handleUseLocation() {
+    if (!("geolocation" in navigator)) {
+      toast.error("Seu navegador não suporta localização");
+      return;
+    }
+    setLocating(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+        }),
+      );
+      const { address } = await geocode({
+        data: { lat: pos.coords.latitude, lng: pos.coords.longitude },
+      });
+      setForm((f) => ({ ...f, endereco: address }));
+      toast.success("Endereço preenchido — confira o número e complemento");
+    } catch (err: unknown) {
+      const msg =
+        err && typeof err === "object" && "code" in err
+          ? "Permita o acesso à localização para usar este recurso"
+          : err instanceof Error
+            ? err.message
+            : "Não foi possível obter sua localização";
+      toast.error(msg);
+    } finally {
+      setLocating(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -174,10 +209,30 @@ function Checkout() {
                 onChange={(e) => setForm({ ...form, cliente_telefone: formatPhoneBR(e.target.value) })} />
             </div>
             <div>
-              <Label htmlFor="end">Endereço de entrega *</Label>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="end">Endereço de entrega *</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUseLocation}
+                  disabled={locating}
+                  className="h-7 px-2 text-xs text-primary hover:text-primary"
+                >
+                  {locating ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <MapPin className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Usar minha localização
+                </Button>
+              </div>
               <Textarea id="end" rows={3} placeholder="Rua, número, complemento, bairro"
                 value={form.endereco}
                 onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Dica: use o GPS para pegar a rua e adicione o número + complemento.
+              </p>
             </div>
             <div>
               <Label>Pagamento na entrega *</Label>
