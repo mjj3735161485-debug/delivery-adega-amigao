@@ -1,0 +1,1 @@
+UPDATE public.store_settings SET horario = 'TER-DOM, 19H ÀS 00H';
