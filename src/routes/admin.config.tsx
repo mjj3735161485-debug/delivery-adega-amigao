@@ -162,38 +162,48 @@ function AdminConfig() {
           {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />} Salvar
         </Button>
 
-        <div className="mt-6 rounded-lg border border-border p-4 space-y-2">
-          <h2 className="font-semibold">Testar envio para o WhatsApp</h2>
-          <p className="text-sm text-muted-foreground">
-            Abre o WhatsApp da loja ({form.whatsapp || "sem número"}) com uma mensagem de pedido fictício.
-          </p>
-          <Button
-            type="button"
-            variant="secondary"
-            onClick={() => {
-              const numero = form.whatsapp.replace(/\D/g, "");
-              if (numero.length < 10) {
-                toast.error("Configure o WhatsApp da loja primeiro");
-                return;
-              }
-              const msg =
-                `*[TESTE] Novo pedido #9999 - ${form.nome}*\n\n` +
-                `*Cliente:* João da Silva\n` +
-                `*Telefone:* (12) 99999-0000\n` +
-                `*Endereço:* Rua Exemplo, 123 - Centro\n\n` +
-                `*Itens:*\n` +
-                `- 2x Cerveja Long Neck — R$ 20,00\n` +
-                `- 1x Refrigerante 2L — R$ 12,00\n\n` +
-                `*Subtotal:* R$ 32,00\n` +
-                `*Taxa de entrega:* R$ ${Number(form.taxa_entrega || 0).toFixed(2).replace(".", ",")}\n` +
-                `*Total:* R$ ${(32 + Number(form.taxa_entrega || 0)).toFixed(2).replace(".", ",")}\n` +
-                `*Pagamento:* Pix (na entrega)\n\n` +
-                `_Mensagem de teste enviada pelo painel admin._`;
-              window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, "_blank");
-            }}
-          >
-            Enviar pedido de teste
-          </Button>
+        <div className="mt-6 rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <MessageSquareText className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div>
+              <h2 className="font-semibold">Testar envio para o WhatsApp</h2>
+              <p className="text-sm text-muted-foreground">
+                Visualize a mensagem antes de abrir o WhatsApp da loja ({form.whatsapp || "sem número"}).
+              </p>
+            </div>
+          </div>
+
+          <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
+            <DialogTrigger asChild>
+              <Button type="button" variant="secondary">
+                Ver mensagem de teste
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Pré-visualização do pedido de teste</DialogTitle>
+                <DialogDescription>
+                  Confira se o texto está correto antes de enviar para a loja.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <Textarea
+                  readOnly
+                  rows={10}
+                  value={buildTestMessage()}
+                  className="resize-none font-mono text-sm"
+                />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>
+                    Fechar
+                  </Button>
+                  <Button type="button" onClick={openTestWhatsApp}>
+                    Abrir WhatsApp
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </div>
