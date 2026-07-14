@@ -73,6 +73,37 @@ function AdminConfig() {
     qc.invalidateQueries({ queryKey: ["settings-header"] });
   }
 
+  function buildTestMessage() {
+    if (!form) return "";
+    const taxa = Number(form.taxa_entrega || 0);
+    const total = 32 + taxa;
+    return (
+      `*[TESTE] Novo pedido #9999 - ${form.nome}*\n\n` +
+      `*Cliente:* João da Silva\n` +
+      `*Telefone:* (12) 99999-0000\n` +
+      `*Endereço:* Rua Exemplo, 123 - Centro\n\n` +
+      `*Itens:*\n` +
+      `- 2x Cerveja Long Neck — R$ 20,00\n` +
+      `- 1x Refrigerante 2L — R$ 12,00\n\n` +
+      `*Subtotal:* R$ 32,00\n` +
+      `*Taxa de entrega:* R$ ${taxa.toFixed(2).replace(".", ",")}\n` +
+      `*Total:* R$ ${total.toFixed(2).replace(".", ",")}\n` +
+      `*Pagamento:* Pix (na entrega)\n\n` +
+      `_Mensagem de teste enviada pelo painel admin._`
+    );
+  }
+
+  function openTestWhatsApp() {
+    if (!form) return;
+    const numero = form.whatsapp.replace(/\D/g, "");
+    if (numero.length < 10) {
+      toast.error("Configure o WhatsApp da loja primeiro");
+      return;
+    }
+    const msg = buildTestMessage();
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+
   if (!ready) return <div className="p-8 text-muted-foreground">Carregando...</div>;
   if (!isAdmin) return <div className="p-8 text-center">Sem permissão de admin.</div>;
   if (!form) return <div className="p-8 text-muted-foreground">Carregando...</div>;
