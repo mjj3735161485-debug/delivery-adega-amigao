@@ -115,7 +115,10 @@ function AdminProdutos() {
   }
 
   async function toggle(p: Product, field: "disponivel" | "destaque") {
-    const { error } = await supabase.from("products").update({ [field]: !p[field] }).eq("id", p.id);
+    const patch = field === "disponivel"
+      ? { disponivel: !p.disponivel }
+      : { destaque: !p.destaque };
+    const { error } = await supabase.from("products").update(patch).eq("id", p.id);
     if (error) return toast.error(error.message);
     qc.invalidateQueries({ queryKey: ["admin", "products"] });
     qc.invalidateQueries({ queryKey: ["products"] });
