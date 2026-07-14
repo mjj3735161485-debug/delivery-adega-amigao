@@ -1,0 +1,9 @@
+# Adega Amigão
+
+> Delivery de bebidas geladas (cervejas, vinhos, destilados e drinks) com pedido confirmado via WhatsApp.
+
+A Adega Amigão é uma adega com entrega rápida. Os clientes montam o pedido no site, escolhem a forma de pagamento na entrega (Dinheiro, Pix ou Cartão) e recebem a confirmação pelo WhatsApp da loja.
+
+## Pages
+
+- [Início](/): Catálogo completo de bebidas com busca e filtros por categoria.

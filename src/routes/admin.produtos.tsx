@@ -20,6 +20,13 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/admin/produtos")({
   component: AdminProdutos,
+  head: () => ({
+    meta: [
+      { title: "Produtos — Adega Amigão" },
+      { name: "description", content: "Gerencie o catálogo de produtos da Adega Amigão." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 type Category = { id: string; nome: string; slug: string; ordem: number };

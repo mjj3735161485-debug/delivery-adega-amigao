@@ -35,6 +35,13 @@ const STATUS: Order["status"][] = ["novo", "preparo", "entrega", "entregue", "ca
 
 export const Route = createFileRoute("/admin/pedidos")({
   component: AdminPedidos,
+  head: () => ({
+    meta: [
+      { title: "Pedidos — Adega Amigão" },
+      { name: "description", content: "Painel de pedidos em tempo real da Adega Amigão." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 function AdminPedidos() {

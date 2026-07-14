@@ -9,6 +9,17 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/auth")({
   component: AuthPage,
+  head: () => ({
+    meta: [
+      { title: "Acesse sua conta — Adega Amigão" },
+      { name: "description", content: "Entre no painel da loja Adega Amigão para gerenciar pedidos, produtos e configurações." },
+      { property: "og:title", content: "Acesse sua conta — Adega Amigão" },
+      { property: "og:description", content: "Painel da loja Adega Amigão." },
+      { property: "og:url", content: "https://sip-n-serve-bot.lovable.app/auth" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+    links: [{ rel: "canonical", href: "https://sip-n-serve-bot.lovable.app/auth" }],
+  }),
 });
 
 function AuthPage() {
@@ -52,6 +63,7 @@ function AuthPage() {
   return (
     <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-sm bg-card border border-border rounded-xl p-6">
+        <h1 className="sr-only">Acesse sua conta da Adega Amigão</h1>
         <div className="flex items-center gap-2 mb-6">
           <span className="h-9 w-9 rounded-full bg-primary/15 border border-primary/40 flex items-center justify-center">
             <Wine className="h-4 w-4 text-primary" />

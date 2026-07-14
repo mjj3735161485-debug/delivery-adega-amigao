@@ -20,7 +20,7 @@ export function CartSheet() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="outline" size="sm" className="relative gap-2">
+        <Button variant="outline" size="sm" className="relative gap-2" aria-label={`Abrir carrinho${count > 0 ? ` (${count} itens)` : ""}`}>
           <ShoppingBag className="h-4 w-4" />
           <span className="hidden sm:inline">Carrinho</span>
           {count > 0 && (
@@ -54,15 +54,18 @@ export function CartSheet() {
                 <p className="text-primary font-semibold text-sm mt-1">{brl(it.preco)}</p>
                 <div className="mt-2 flex items-center gap-2">
                   <Button variant="outline" size="icon" className="h-7 w-7"
+                    aria-label={`Diminuir quantidade de ${it.nome}`}
                     onClick={() => setQty(it.id, it.quantidade - 1)}>
                     <Minus className="h-3 w-3" />
                   </Button>
                   <span className="w-6 text-center text-sm font-medium">{it.quantidade}</span>
                   <Button variant="outline" size="icon" className="h-7 w-7"
+                    aria-label={`Aumentar quantidade de ${it.nome}`}
                     onClick={() => setQty(it.id, it.quantidade + 1)}>
                     <Plus className="h-3 w-3" />
                   </Button>
                   <Button variant="ghost" size="icon" className="h-7 w-7 ml-auto text-muted-foreground"
+                    aria-label={`Remover ${it.nome} do carrinho`}
                     onClick={() => remove(it.id)}>
                     <Trash2 className="h-3 w-3" />
                   </Button>
