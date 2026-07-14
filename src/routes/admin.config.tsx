@@ -21,6 +21,13 @@ import {
 
 export const Route = createFileRoute("/admin/config")({
   component: AdminConfig,
+  head: () => ({
+    meta: [
+      { title: "Configurações — Adega Amigão" },
+      { name: "description", content: "Configurações da loja Adega Amigão." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
 });
 
 type Settings = {
