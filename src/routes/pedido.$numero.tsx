@@ -8,6 +8,13 @@ import { brl } from "@/lib/format";
 
 export const Route = createFileRoute("/pedido/$numero")({
   component: PedidoConfirmacao,
+  head: ({ params }) => ({
+    meta: [
+      { title: `Pedido #${params.numero} — Adega Amigão` },
+      { name: "description", content: "Resumo e status do seu pedido na Adega Amigão." },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   validateSearch: (s: Record<string, unknown>) => ({
     t: typeof s.t === "string" ? s.t : undefined,
   }),
