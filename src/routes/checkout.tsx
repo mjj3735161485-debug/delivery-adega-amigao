@@ -92,6 +92,28 @@ function Checkout() {
     },
   });
 
+  // Pré-preenche dados se o cliente está logado
+  useState(() => {
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) return;
+      const { data: p } = await supabase
+        .from("customer_profiles")
+        .select("nome, telefone, endereco_padrao, bairro_id")
+        .eq("user_id", sess.session.user.id)
+        .maybeSingle();
+      if (!p) return;
+      setForm((f) => ({
+        ...f,
+        cliente_nome: f.cliente_nome || (p.nome ?? ""),
+        cliente_telefone: f.cliente_telefone || (p.telefone ?? ""),
+        endereco: f.endereco || (p.endereco_padrao ?? ""),
+        bairro_id: f.bairro_id || (p.bairro_id ?? ""),
+      }));
+    })();
+    return undefined;
+  });
+
   const bairroSel = areas.find((a) => a.id === form.bairro_id);
   const taxa = Number(bairroSel?.taxa ?? 0);
   const total = subtotal + taxa;
