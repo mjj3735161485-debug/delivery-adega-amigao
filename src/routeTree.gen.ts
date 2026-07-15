@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as MotoboyRouteImport } from './routes/motoboy'
+import { Route as ContaRouteImport } from './routes/conta'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +30,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const MotoboyRoute = MotoboyRouteImport.update({
   id: '/motoboy',
   path: '/motoboy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContaRoute = ContaRouteImport.update({
+  id: '/conta',
+  path: '/conta',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -81,6 +87,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/conta': typeof ContaRoute
   '/motoboy': typeof MotoboyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/config': typeof AdminConfigRoute
@@ -94,6 +101,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/conta': typeof ContaRoute
   '/motoboy': typeof MotoboyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/config': typeof AdminConfigRoute
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/conta': typeof ContaRoute
   '/motoboy': typeof MotoboyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/config': typeof AdminConfigRoute
@@ -123,6 +132,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/checkout'
+    | '/conta'
     | '/motoboy'
     | '/sitemap.xml'
     | '/admin/config'
@@ -136,6 +146,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/checkout'
+    | '/conta'
     | '/motoboy'
     | '/sitemap.xml'
     | '/admin/config'
@@ -149,6 +160,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/checkout'
+    | '/conta'
     | '/motoboy'
     | '/sitemap.xml'
     | '/admin/config'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CheckoutRoute: typeof CheckoutRoute
+  ContaRoute: typeof ContaRoute
   MotoboyRoute: typeof MotoboyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminConfigRoute: typeof AdminConfigRoute
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/motoboy'
       fullPath: '/motoboy'
       preLoaderRoute: typeof MotoboyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/conta': {
+      id: '/conta'
+      path: '/conta'
+      fullPath: '/conta'
+      preLoaderRoute: typeof ContaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -259,6 +279,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CheckoutRoute: CheckoutRoute,
+  ContaRoute: ContaRoute,
   MotoboyRoute: MotoboyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminConfigRoute: AdminConfigRoute,
