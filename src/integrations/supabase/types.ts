@@ -100,6 +100,44 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_profiles: {
+        Row: {
+          bairro_id: string | null
+          created_at: string
+          endereco_padrao: string | null
+          nome: string | null
+          telefone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bairro_id?: string | null
+          created_at?: string
+          endereco_padrao?: string | null
+          nome?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bairro_id?: string | null
+          created_at?: string
+          endereco_padrao?: string | null
+          nome?: string | null
+          telefone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_profiles_bairro_id_fkey"
+            columns: ["bairro_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_areas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       delivery_areas: {
         Row: {
           ativo: boolean
@@ -181,6 +219,7 @@ export type Database = {
           cliente_telefone: string
           courier_id: string | null
           created_at: string
+          customer_user_id: string | null
           delivered_at: string | null
           endereco: string
           id: string
@@ -202,6 +241,7 @@ export type Database = {
           cliente_telefone: string
           courier_id?: string | null
           created_at?: string
+          customer_user_id?: string | null
           delivered_at?: string | null
           endereco: string
           id?: string
@@ -223,6 +263,7 @@ export type Database = {
           cliente_telefone?: string
           courier_id?: string | null
           created_at?: string
+          customer_user_id?: string | null
           delivered_at?: string | null
           endereco?: string
           id?: string

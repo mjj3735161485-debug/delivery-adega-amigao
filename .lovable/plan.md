@@ -1,30 +1,32 @@
-## Ajustes no painel do motoboy (`/motoboy`)
+## Adicionar Sign in with Apple (dono/motoboy + cliente final)
 
-Vou acrescentar um resumo financeiro completo pra cada motoboy, no próprio login dele.
+### Ativação do provedor
+- Ativar **Apple** (managed) via Lovable Cloud — sem precisar de credenciais Apple Developer, funciona out-of-the-box.
+- Manter Email/senha habilitado (dono/motoboy hoje usam).
 
-### Cabeçalho — taxa da entrega atual
-- Logo abaixo do nome do motoboy, exibir um **card destacado** com a **taxa da entrega em curso** (baseada no bairro do pedido aceito):
-  - Ex.: `Entrega atual · CENTRO · R$ 15,00`.
-  - Se tiver mais de uma entrega aceita em curso, mostra a soma e a lista compacta.
-  - Se não houver entrega em curso, mostra `Nenhuma entrega em curso`.
+### A) Botão Apple no `/auth` atual (dono/motoboy)
+- Instalar `@lovable.dev/cloud-auth-js` e gerar módulo `src/integrations/lovable/` via tool de social auth.
+- Em `src/routes/auth.tsx`, adicionar botão **"Continuar com Apple"** acima do form de email/senha, com divisor "ou".
+- Handler: `lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin + "/auth" })`.
+- Após retorno com sessão: reaproveitar a lógica já existente que consulta `user_roles` e redireciona pra `/motoboy` (motoboy sem admin) ou `/admin/pedidos` (admin). Se **não** tiver nenhuma role, mostrar toast "Conta criada. Peça ao admin liberar acesso." e deslogar — evita conta Apple aleatória ganhar acesso silencioso.
 
-### Rodapé — estatísticas pessoais
-O rodapé atual já mostra "Comissão hoje" e "entregas concluídas hoje". Vou expandir pra três blocos:
-- **Hoje**: total R$ + nº de entregas concluídas hoje.
-- **Este mês**: total R$ + nº de entregas concluídas no mês vigente.
-- **Média**: valor médio por entrega no mês (total do mês ÷ entregas do mês), útil pra ele acompanhar o desempenho.
+### B) Login de cliente final (nova área)
+- Nova rota pública `src/routes/conta.tsx` com botão Apple + email/senha (mesmo componente reutilizado).
+- Nova tabela `public.customer_profiles` (id = user_id, nome, telefone, endereco_padrao, bairro_id) com RLS "próprio usuário lê/edita".
+- Nova rota `src/routes/minha-conta.tsx` (autenticada, mas **não** exige role admin/motoboy) mostrando: dados do perfil + histórico de pedidos do cliente.
+- Vincular histórico: adicionar coluna nullable `customer_user_id` em `orders`; a RPC `place_order` grava `auth.uid()` se houver sessão. Nova policy: cliente lê seus próprios pedidos por `customer_user_id`.
+- No `checkout.tsx`: se logado, pré-preencher nome/telefone/endereço/bairro do `customer_profiles` e mostrar link "Ver meus pedidos". Se não logado, manter fluxo anônimo atual (login **não** é obrigatório pra comprar).
+- No `SiteHeader`: botão discreto "Minha conta" (avatar quando logado, "Entrar" quando não).
+- Ajustar `auth.tsx` (painel loja) pra **não** aceitar quem só tem role de cliente — redireciona pra `/minha-conta`.
 
-### Fonte dos dados
-- Query já existente busca os pedidos do motoboy (`orders` filtrados por `courier_id`). Vou:
-  - Aumentar o limite pra 200 (ou usar filtro por data ≥ primeiro dia do mês) pra garantir que o mês todo entre.
-  - Adicionar uma segunda query específica pro mês, filtrando `delivered_at ≥ 1º dia do mês corrente`, ordenada desc — evita depender do limite da lista visual.
+### Detalhes técnicos
+- Provider: usar `lovable.auth.signInWithOAuth("apple", ...)` — **nunca** `supabase.auth.signInWithOAuth` direto (regra Lovable Cloud managed).
+- Apple exige `emailRedirectTo`/`redirect_uri` same-origin público: usar `window.location.origin` + callback route pública (não protegida).
+- Guardar rotas admin/motoboy continua via `useAdminGuard`/`useCourierGuard` — nenhuma mudança de segurança nelas.
+- SEO: `/conta` e `/minha-conta` recebem `noindex` (páginas de auth/privadas).
+- Migração inclui `GRANT` corretos e RLS em `customer_profiles`.
 
-### Regras de acesso
-- Nada muda no banco. Os dados já são visíveis ao próprio motoboy pela policy `courier reads own orders` criada na migração anterior.
-- O dono continua vendo o resumo diário de cada motoboy em `/admin/motoboys`. Se quiser, posso acrescentar também a coluna "no mês" lá — me diz.
-
-### O que não muda
-- Nada no fluxo do cliente nem no painel admin de pedidos.
-- Taxa continua sendo calculada no servidor pelo bairro (não é editável pelo motoboy).
-
-Confirma que sigo?
+### Fora do escopo
+- Apple BYOC (credenciais próprias) — fica como managed.
+- Recuperação de senha / verificação de email adicional.
+- Google sign-in (não pediu).
