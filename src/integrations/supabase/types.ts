@@ -38,6 +38,33 @@ export type Database = {
         }
         Relationships: []
       }
+      delivery_areas: {
+        Row: {
+          ativo: boolean
+          bairro: string
+          created_at: string
+          id: string
+          taxa: number
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          bairro: string
+          created_at?: string
+          id?: string
+          taxa: number
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          bairro?: string
+          created_at?: string
+          id?: string
+          taxa?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_items: {
         Row: {
           created_at: string
@@ -86,6 +113,7 @@ export type Database = {
       orders: {
         Row: {
           access_token: string
+          bairro: string | null
           cliente_nome: string
           cliente_telefone: string
           created_at: string
@@ -103,6 +131,7 @@ export type Database = {
         }
         Insert: {
           access_token?: string
+          bairro?: string | null
           cliente_nome: string
           cliente_telefone: string
           created_at?: string
@@ -120,6 +149,7 @@ export type Database = {
         }
         Update: {
           access_token?: string
+          bairro?: string | null
           cliente_nome?: string
           cliente_telefone?: string
           created_at?: string
