@@ -119,13 +119,14 @@ function MotoboyPage() {
     );
     watchRef.current = id;
 
-    // ping a cada 15s: envia posição (ou null se ainda não veio)
+    // ping a cada 15s: envia posição só quando disponível
     const tick = async () => {
       const p = posRef.current;
+      if (!p) return;
       await supabase.rpc("update_courier_presence", {
         _online: true,
-        _lat: p?.lat ?? null,
-        _lng: p?.lng ?? null,
+        _lat: p.lat,
+        _lng: p.lng,
       });
     };
     void tick();
@@ -133,8 +134,17 @@ function MotoboyPage() {
     return () => {
       clearInterval(interval);
       if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
-      // marca offline ao sair
-      void supabase.rpc("update_courier_presence", { _online: false, _lat: null, _lng: null });
+      // marca offline ao sair (usa 0,0 como sentinela; front ignora quando offline)
+      const last = posRef.current;
+      void (async () => {
+        try {
+          await supabase.rpc("update_courier_presence", {
+            _online: false,
+            _lat: last?.lat ?? 0,
+            _lng: last?.lng ?? 0,
+          });
+        } catch { /* noop */ }
+      })();
     };
   }, [ready, isCourier, courierId]);
 
@@ -154,7 +164,9 @@ function MotoboyPage() {
   }
 
   async function logout() {
-    await supabase.rpc("update_courier_presence", { _online: false, _lat: null, _lng: null }).catch(() => {});
+    try {
+      await supabase.rpc("update_courier_presence", { _online: false, _lat: 0, _lng: 0 });
+    } catch { /* noop */ }
     await supabase.auth.signOut();
     window.location.href = "/auth";
   }
