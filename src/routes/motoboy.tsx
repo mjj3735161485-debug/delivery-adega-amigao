@@ -81,6 +81,27 @@ function MotoboyPage() {
     },
   });
 
+  // Entregas do mês corrente (para totais/quantidade/média)
+  const { data: mesEntregas = [] } = useQuery({
+    queryKey: ["motoboy", "mes", courierId],
+    enabled: ready && isCourier && !!courierId,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const inicio = new Date();
+      inicio.setDate(1);
+      inicio.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from("orders")
+        .select("id,taxa_entrega,delivered_at")
+        .eq("courier_id", courierId!)
+        .not("delivered_at", "is", null)
+        .gte("delivered_at", inicio.toISOString())
+        .order("delivered_at", { ascending: false });
+      if (error) throw error;
+      return data as { id: string; taxa_entrega: number; delivered_at: string }[];
+    },
+  });
+
   // Realtime: pedidos novos entram na lista disponível
   useEffect(() => {
     if (!ready || !isCourier) return;
@@ -92,6 +113,7 @@ function MotoboyPage() {
         () => {
           qc.invalidateQueries({ queryKey: ["motoboy", "available"] });
           qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
+          qc.invalidateQueries({ queryKey: ["motoboy", "mes", courierId] });
         },
       )
       .subscribe();
@@ -188,6 +210,10 @@ function MotoboyPage() {
   const hojeEntregues = mine.filter((o) => o.delivered_at && new Date(o.delivered_at).toDateString() === new Date().toDateString());
   const totalHoje = hojeEntregues.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const emCurso = mine.filter((o) => !o.delivered_at);
+  const totalMes = mesEntregas.reduce((s, o) => s + Number(o.taxa_entrega), 0);
+  const countMes = mesEntregas.length;
+  const mediaMes = countMes > 0 ? totalMes / countMes : 0;
+  const taxaEmCurso = emCurso.reduce((s, o) => s + Number(o.taxa_entrega), 0);
 
   return (
     <div className="min-h-screen pb-24">
@@ -217,6 +243,28 @@ function MotoboyPage() {
             Turno de entrega das <strong>19h às 00h</strong>. Fora desse horário você não aparece online para o dono nem para os clientes.
           </div>
         )}
+
+        <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4">
+          <p className="text-[10px] uppercase tracking-widest text-emerald-300/80">Entrega atual</p>
+          {emCurso.length === 0 ? (
+            <p className="text-sm text-muted-foreground mt-1">Nenhuma entrega em curso.</p>
+          ) : emCurso.length === 1 ? (
+            <p className="font-display text-xl mt-1">
+              {emCurso[0].bairro ?? "—"} · <span className="text-emerald-400 font-mono">{brl(Number(emCurso[0].taxa_entrega))}</span>
+            </p>
+          ) : (
+            <div className="mt-1">
+              <p className="font-display text-xl">
+                {emCurso.length} entregas · <span className="text-emerald-400 font-mono">{brl(taxaEmCurso)}</span>
+              </p>
+              <ul className="mt-1 text-xs text-muted-foreground space-y-0.5">
+                {emCurso.map((o) => (
+                  <li key={o.id}>#{o.numero} · {o.bairro ?? "—"} · {brl(Number(o.taxa_entrega))}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
 
         <section>
           <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-widest mb-2">
@@ -291,12 +339,22 @@ function MotoboyPage() {
       </main>
 
       <footer className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur">
-        <div className="mx-auto max-w-2xl px-4 h-16 flex items-center justify-between">
+        <div className="mx-auto max-w-2xl px-4 py-2 grid grid-cols-3 gap-2 text-center">
           <div>
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Comissão hoje</p>
-            <p className="font-display text-2xl text-emerald-400 leading-none">{brl(totalHoje)}</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Hoje</p>
+            <p className="font-display text-lg text-emerald-400 leading-none">{brl(totalHoje)}</p>
+            <p className="text-[10px] text-muted-foreground">{hojeEntregues.length} entregas</p>
           </div>
-          <p className="text-xs text-muted-foreground">{hojeEntregues.length} entregas concluídas</p>
+          <div className="border-x border-border">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Este mês</p>
+            <p className="font-display text-lg text-emerald-400 leading-none">{brl(totalMes)}</p>
+            <p className="text-[10px] text-muted-foreground">{countMes} entregas</p>
+          </div>
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Média/entrega</p>
+            <p className="font-display text-lg leading-none">{brl(mediaMes)}</p>
+            <p className="text-[10px] text-muted-foreground">no mês</p>
+          </div>
         </div>
       </footer>
     </div>
