@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { Wine, Loader2 } from "lucide-react";
+import { Wine, Loader2, Apple } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,6 +28,7 @@ function AuthPage() {
   const [password, setPassword] = useState("");
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [loading, setLoading] = useState(false);
+  const [appleLoading, setAppleLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,9 +41,46 @@ function AuthPage() {
         .eq("user_id", data.session.user.id);
       const isAdmin = (roles ?? []).some((r) => r.role === "admin");
       const isCourier = (roles ?? []).some((r) => r.role === "motoboy");
+      if (!isAdmin && !isCourier) {
+        // Cliente final logado tentando acessar painel loja → manda pra conta
+        navigate({ to: "/minha-conta" });
+        return;
+      }
       navigate({ to: isCourier && !isAdmin ? "/motoboy" : "/admin/pedidos" });
     })();
   }, [navigate]);
+
+  async function handleApple() {
+    setAppleLoading(true);
+    try {
+      const result = await lovable.auth.signInWithOAuth("apple", {
+        redirect_uri: window.location.origin + "/auth",
+      });
+      if (result.error) {
+        toast.error("Não foi possível entrar com Apple.");
+        return;
+      }
+      if (result.redirected) return;
+      // Sessão pronta — checa roles
+      const { data: sess } = await supabase.auth.getSession();
+      const uid = sess.session?.user.id;
+      if (!uid) return;
+      const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+      const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+      const isCourier = (roles ?? []).some((r) => r.role === "motoboy");
+      if (!isAdmin && !isCourier) {
+        toast.info("Login realizado. Peça ao admin liberar acesso ao painel.");
+        navigate({ to: "/minha-conta" });
+        return;
+      }
+      navigate({ to: isCourier && !isAdmin ? "/motoboy" : "/admin/pedidos" });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro no login Apple";
+      toast.error(msg);
+    } finally {
+      setAppleLoading(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,7 +95,11 @@ function AuthPage() {
           const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
           const isAdmin = (roles ?? []).some((r) => r.role === "admin");
           const isCourier = (roles ?? []).some((r) => r.role === "motoboy");
-          navigate({ to: isCourier && !isAdmin ? "/motoboy" : "/admin/pedidos" });
+          if (!isAdmin && !isCourier) {
+            navigate({ to: "/minha-conta" });
+          } else {
+            navigate({ to: isCourier && !isAdmin ? "/motoboy" : "/admin/pedidos" });
+          }
         } else {
           navigate({ to: "/admin/pedidos" });
         }
@@ -89,6 +132,28 @@ function AuthPage() {
             <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
               Painel da loja
             </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          variant="outline"
+          className="w-full mb-3"
+          onClick={handleApple}
+          disabled={appleLoading}
+        >
+          {appleLoading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Apple className="h-4 w-4 mr-2" />
+          )}
+          Continuar com Apple
+        </Button>
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t border-border" />
+          </div>
+          <div className="relative flex justify-center text-[10px] uppercase">
+            <span className="bg-card px-2 text-muted-foreground">ou email</span>
           </div>
         </div>
         <form onSubmit={submit} className="space-y-4">
