@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, MapPin } from "lucide-react";
@@ -91,6 +91,29 @@ function Checkout() {
       return data as { id: string; bairro: string; taxa: number }[];
     },
   });
+
+  // Pré-preenche dados se o cliente está logado
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const { data: sess } = await supabase.auth.getSession();
+      if (!sess.session) return;
+      const { data: p } = await supabase
+        .from("customer_profiles")
+        .select("nome, telefone, endereco_padrao, bairro_id")
+        .eq("user_id", sess.session.user.id)
+        .maybeSingle();
+      if (!mounted || !p) return;
+      setForm((f) => ({
+        ...f,
+        cliente_nome: f.cliente_nome || (p.nome ?? ""),
+        cliente_telefone: f.cliente_telefone || (p.telefone ?? ""),
+        endereco: f.endereco || (p.endereco_padrao ?? ""),
+        bairro_id: f.bairro_id || (p.bairro_id ?? ""),
+      }));
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   const bairroSel = areas.find((a) => a.id === form.bairro_id);
   const taxa = Number(bairroSel?.taxa ?? 0);

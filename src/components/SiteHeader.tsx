@@ -1,10 +1,19 @@
+import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Wine } from "lucide-react";
+import { Wine, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CartSheet } from "./CartSheet";
 
 export function SiteHeader() {
+  const [signedIn, setSignedIn] = useState(false);
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
+      setSignedIn(!!sess);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
   const { data: s } = useQuery({
     queryKey: ["settings-header"],
     queryFn: async () => {
@@ -38,7 +47,17 @@ export function SiteHeader() {
             </>
           )}
         </Link>
-        <CartSheet />
+        <div className="flex items-center gap-2">
+          <Link
+            to={signedIn ? "/minha-conta" : "/conta"}
+            aria-label={signedIn ? "Minha conta" : "Entrar"}
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md"
+          >
+            <User className="h-4 w-4" />
+            <span className="hidden sm:inline">{signedIn ? "Minha conta" : "Entrar"}</span>
+          </Link>
+          <CartSheet />
+        </div>
       </div>
     </header>
   );
