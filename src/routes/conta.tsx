@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Wine, Loader2, Apple } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -140,6 +140,15 @@ function CustomerAuthPage() {
             {mode === "login" ? "Criar nova conta" : "Já tenho conta"}
           </button>
         </form>
+        <div className="mt-6 pt-4 border-t border-border text-center">
+          <p className="text-xs text-muted-foreground mb-2">Equipe da loja?</p>
+          <Link
+            to="/auth"
+            className="text-xs text-primary hover:underline font-medium"
+          >
+            Acessar painel admin/motoboy →
+          </Link>
+        </div>
       </div>
     </div>
   );
