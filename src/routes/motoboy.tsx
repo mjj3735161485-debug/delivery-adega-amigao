@@ -1,0 +1,307 @@
+import { useEffect, useRef, useState } from "react";
+import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { LogOut, MapPin, CheckCircle2, Loader2 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useCourierGuard } from "@/lib/useCourierGuard";
+import { Button } from "@/components/ui/button";
+import { brl, formatPhoneBR } from "@/lib/format";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/motoboy")({
+  component: MotoboyPage,
+  head: () => ({
+    meta: [
+      { title: "Painel do Motoboy — Adega Amigão" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
+});
+
+type Order = {
+  id: string;
+  numero: number;
+  cliente_nome: string;
+  cliente_telefone: string;
+  endereco: string;
+  bairro: string | null;
+  taxa_entrega: number;
+  total: number;
+  pagamento: string;
+  troco_para: number | null;
+  observacoes: string | null;
+  status: string;
+  courier_id: string | null;
+  accepted_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+};
+
+function withinShift(): boolean {
+  const h = new Date().getHours();
+  return h >= 19 || h === 0; // 19h-23h ou 00h (meia-noite)
+}
+
+function MotoboyPage() {
+  const { ready, isCourier, courierId, nome } = useCourierGuard();
+  const qc = useQueryClient();
+  const [gpsStatus, setGpsStatus] = useState<"idle" | "on" | "denied" | "unavailable">("idle");
+  const watchRef = useRef<number | null>(null);
+  const posRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  const { data: available = [] } = useQuery({
+    queryKey: ["motoboy", "available"],
+    enabled: ready && isCourier,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .is("courier_id", null)
+        .eq("status", "novo")
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      return data as Order[];
+    },
+  });
+
+  const { data: mine = [] } = useQuery({
+    queryKey: ["motoboy", "mine", courierId],
+    enabled: ready && isCourier && !!courierId,
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("*")
+        .eq("courier_id", courierId!)
+        .order("accepted_at", { ascending: false })
+        .limit(30);
+      if (error) throw error;
+      return data as Order[];
+    },
+  });
+
+  // Realtime: pedidos novos entram na lista disponível
+  useEffect(() => {
+    if (!ready || !isCourier) return;
+    const ch = supabase
+      .channel("orders-motoboy")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders" },
+        () => {
+          qc.invalidateQueries({ queryKey: ["motoboy", "available"] });
+          qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
+        },
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [ready, isCourier, courierId, qc]);
+
+  // GPS + presença
+  useEffect(() => {
+    if (!ready || !isCourier || !courierId) return;
+    if (!withinShift()) return;
+    if (!navigator.geolocation) {
+      setGpsStatus("unavailable");
+      return;
+    }
+    const id = navigator.geolocation.watchPosition(
+      (p) => {
+        posRef.current = { lat: p.coords.latitude, lng: p.coords.longitude };
+        setGpsStatus("on");
+      },
+      (err) => {
+        if (err.code === 1) setGpsStatus("denied");
+        else setGpsStatus("unavailable");
+      },
+      { enableHighAccuracy: true, maximumAge: 10_000, timeout: 15_000 },
+    );
+    watchRef.current = id;
+
+    // ping a cada 15s: envia posição só quando disponível
+    const tick = async () => {
+      const p = posRef.current;
+      if (!p) return;
+      await supabase.rpc("update_courier_presence", {
+        _online: true,
+        _lat: p.lat,
+        _lng: p.lng,
+      });
+    };
+    void tick();
+    const interval = setInterval(tick, 15_000);
+    return () => {
+      clearInterval(interval);
+      if (watchRef.current !== null) navigator.geolocation.clearWatch(watchRef.current);
+      // marca offline ao sair (usa 0,0 como sentinela; front ignora quando offline)
+      const last = posRef.current;
+      void (async () => {
+        try {
+          await supabase.rpc("update_courier_presence", {
+            _online: false,
+            _lat: last?.lat ?? 0,
+            _lng: last?.lng ?? 0,
+          });
+        } catch { /* noop */ }
+      })();
+    };
+  }, [ready, isCourier, courierId]);
+
+  async function aceitar(o: Order) {
+    const { error } = await supabase.rpc("accept_order", { _numero: o.numero });
+    if (error) return toast.error(error.message);
+    toast.success(`Pedido #${o.numero} aceito`);
+    qc.invalidateQueries({ queryKey: ["motoboy", "available"] });
+    qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
+  }
+
+  async function entregar(o: Order) {
+    const { error } = await supabase.rpc("mark_delivered", { _numero: o.numero });
+    if (error) return toast.error(error.message);
+    toast.success(`Pedido #${o.numero} entregue`);
+    qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
+  }
+
+  async function logout() {
+    try {
+      await supabase.rpc("update_courier_presence", { _online: false, _lat: 0, _lng: 0 });
+    } catch { /* noop */ }
+    await supabase.auth.signOut();
+    window.location.href = "/auth";
+  }
+
+  if (!ready) return <div className="p-8 text-muted-foreground">Carregando...</div>;
+  if (!isCourier) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 text-center">
+        <div>
+          <h1 className="font-display text-2xl">Sem permissão</h1>
+          <p className="text-muted-foreground text-sm mt-2">Sua conta não é motoboy.</p>
+          <Button onClick={logout} className="mt-4" variant="outline">Sair</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const inShift = withinShift();
+  const hojeEntregues = mine.filter((o) => o.delivered_at && new Date(o.delivered_at).toDateString() === new Date().toDateString());
+  const totalHoje = hojeEntregues.reduce((s, o) => s + Number(o.taxa_entrega), 0);
+  const emCurso = mine.filter((o) => !o.delivered_at);
+
+  return (
+    <div className="min-h-screen pb-24">
+      <header className="border-b border-border sticky top-0 bg-background/95 backdrop-blur z-10">
+        <div className="mx-auto max-w-2xl px-4 h-14 flex items-center justify-between">
+          <div>
+            <p className="font-display text-lg font-bold leading-none">Olá, {nome || "motoboy"}</p>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+              {inShift
+                ? gpsStatus === "on"
+                  ? "🟢 online · GPS ativo"
+                  : gpsStatus === "denied"
+                    ? "🟡 online · GPS negado"
+                    : "🟡 online · aguardando GPS"
+                : "⚪ turno fechado (abre 19h)"}
+            </p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={logout}>
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </div>
+      </header>
+
+      <main className="mx-auto max-w-2xl px-4 py-6 space-y-6">
+        {!inShift && (
+          <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
+            Turno de entrega das <strong>19h às 00h</strong>. Fora desse horário você não aparece online para o dono nem para os clientes.
+          </div>
+        )}
+
+        <section>
+          <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-widest mb-2">
+            Em curso ({emCurso.length})
+          </h2>
+          <div className="space-y-3">
+            {emCurso.length === 0 && (
+              <p className="text-sm text-muted-foreground">Sem entregas em curso.</p>
+            )}
+            {emCurso.map((o) => (
+              <article key={o.id} className="rounded-xl bg-card border border-border p-4">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <p className="font-display text-lg">#{o.numero} · {o.cliente_nome}</p>
+                    <p className="text-xs text-muted-foreground">{formatPhoneBR(o.cliente_telefone)}</p>
+                  </div>
+                  <p className="text-emerald-400 font-mono">{brl(Number(o.taxa_entrega))}</p>
+                </div>
+                <p className="text-sm mt-2 flex gap-1 items-start">
+                  <MapPin className="h-4 w-4 mt-0.5 text-muted-foreground" />
+                  <span>{o.bairro ? <strong>{o.bairro}</strong> : null} {o.endereco}</span>
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pagamento: {o.pagamento}{o.troco_para ? ` · troco ${brl(Number(o.troco_para))}` : ""}
+                </p>
+                <p className="text-xs text-muted-foreground">Total do pedido: {brl(Number(o.total))}</p>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" onClick={() => entregar(o)}>
+                    <CheckCircle2 className="h-4 w-4 mr-1" /> Marcar entregue
+                  </Button>
+                  <Button asChild size="sm" variant="outline">
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(o.endereco)}`}
+                      target="_blank" rel="noreferrer"
+                    >
+                      Abrir no Maps
+                    </a>
+                  </Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section>
+          <h2 className="font-semibold text-sm text-muted-foreground uppercase tracking-widest mb-2">
+            Disponíveis ({available.length})
+          </h2>
+          <div className="space-y-3">
+            {available.length === 0 && (
+              <p className="text-sm text-muted-foreground">Nenhum pedido aguardando.</p>
+            )}
+            {available.map((o) => (
+              <article key={o.id} className="rounded-xl bg-card border border-border p-4">
+                <div className="flex justify-between items-start gap-2">
+                  <div>
+                    <p className="font-display text-lg">#{o.numero}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {o.bairro ? <strong>{o.bairro}</strong> : null} · {new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  <p className="text-emerald-400 font-mono">{brl(Number(o.taxa_entrega))}</p>
+                </div>
+                <p className="text-sm mt-1">{o.endereco}</p>
+                <Button className="w-full mt-3" onClick={() => aceitar(o)}>
+                  Aceitar entrega
+                </Button>
+              </article>
+            ))}
+          </div>
+        </section>
+      </main>
+
+      <footer className="fixed bottom-0 left-0 right-0 border-t border-border bg-background/95 backdrop-blur">
+        <div className="mx-auto max-w-2xl px-4 h-16 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Comissão hoje</p>
+            <p className="font-display text-2xl text-emerald-400 leading-none">{brl(totalHoje)}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">{hojeEntregues.length} entregas concluídas</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+// Silence unused Loader2/Link if not referenced (kept for future actions).
+void Loader2; void Link;

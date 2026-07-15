@@ -1,6 +1,7 @@
+import { useEffect } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { CheckCircle2 } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { CheckCircle2, Bike } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/pedido/$numero")({
 function PedidoConfirmacao() {
   const { numero } = Route.useParams();
   const { t } = Route.useSearch();
+  const qc = useQueryClient();
 
   const { data, isLoading } = useQuery({
     queryKey: ["pedido", numero, t],
@@ -44,6 +46,43 @@ function PedidoConfirmacao() {
     },
   });
 
+  const { data: courier } = useQuery({
+    queryKey: ["pedido-courier", numero, t],
+    enabled: !!t,
+    refetchInterval: 20_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_courier_for_order", {
+        _numero: Number(numero),
+        _token: t!,
+      });
+      if (error) throw error;
+      return data as {
+        nome: string | null;
+        lat: number | null;
+        lng: number | null;
+        online: boolean;
+        accepted_at: string | null;
+        delivered_at: string | null;
+        endereco: string | null;
+      } | null;
+    },
+  });
+
+  useEffect(() => {
+    if (!t) return;
+    const ch = supabase
+      .channel(`pedido-live-${numero}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "courier_presence" }, () =>
+        qc.invalidateQueries({ queryKey: ["pedido-courier", numero, t] }))
+      .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () =>
+        qc.invalidateQueries({ queryKey: ["pedido-courier", numero, t] }))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [numero, t, qc]);
+
+  const mapKey = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+  const showTracker = !!courier?.accepted_at && !courier?.delivered_at && courier?.nome;
+
   return (
     <div className="min-h-screen">
       <SiteHeader />
@@ -59,6 +98,40 @@ function PedidoConfirmacao() {
           Confirmamos seu pedido no WhatsApp em instantes. Se a janela não abriu,
           revise a mensagem enviada.
         </p>
+
+        {courier?.delivered_at && (
+          <div className="mt-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
+            <CheckCircle2 className="h-5 w-5 inline mr-1" /> Pedido entregue por <strong>{courier.nome}</strong>. Bom apetite!
+          </div>
+        )}
+
+        {showTracker && (
+          <div className="mt-6 rounded-xl border border-primary/40 bg-primary/5 p-4 text-left">
+            <div className="flex items-center gap-2">
+              <Bike className="h-5 w-5 text-primary" />
+              <div>
+                <p className="font-semibold">Seu entregador está a caminho</p>
+                <p className="text-xs text-muted-foreground">
+                  {courier.nome} · {courier.online ? "online agora" : "aguardando sinal…"}
+                </p>
+              </div>
+            </div>
+            {mapKey && courier.lat != null && courier.lng != null && courier.endereco ? (
+              <iframe
+                title="Rota do entregador"
+                className="mt-3 w-full rounded-lg border border-border"
+                height={220}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps/embed/v1/directions?key=${mapKey}&origin=${courier.lat},${courier.lng}&destination=${encodeURIComponent(courier.endereco)}&mode=driving`}
+              />
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Localização do entregador indisponível no momento.
+              </p>
+            )}
+          </div>
+        )}
 
         {isLoading ? (
           <p className="mt-8 text-sm text-muted-foreground">Carregando resumo...</p>

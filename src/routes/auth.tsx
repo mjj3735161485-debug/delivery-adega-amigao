@@ -30,9 +30,17 @@ function AuthPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/admin/pedidos" });
-    });
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) return;
+      const { data: roles } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", data.session.user.id);
+      const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+      const isCourier = (roles ?? []).some((r) => r.role === "motoboy");
+      navigate({ to: isCourier && !isAdmin ? "/motoboy" : "/admin/pedidos" });
+    })();
   }, [navigate]);
 
   async function submit(e: React.FormEvent) {
@@ -40,10 +48,18 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Bem-vindo!");
-        navigate({ to: "/admin/pedidos" });
+        const uid = signInData.user?.id;
+        if (uid) {
+          const { data: roles } = await supabase.from("user_roles").select("role").eq("user_id", uid);
+          const isAdmin = (roles ?? []).some((r) => r.role === "admin");
+          const isCourier = (roles ?? []).some((r) => r.role === "motoboy");
+          navigate({ to: isCourier && !isAdmin ? "/motoboy" : "/admin/pedidos" });
+        } else {
+          navigate({ to: "/admin/pedidos" });
+        }
       } else {
         const { error } = await supabase.auth.signUp({
           email, password,

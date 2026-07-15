@@ -10,18 +10,25 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as MotoboyRouteImport } from './routes/motoboy'
 import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidoNumeroRouteImport } from './routes/pedido.$numero'
 import { Route as AdminProdutosRouteImport } from './routes/admin.produtos'
 import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
+import { Route as AdminMotoboysRouteImport } from './routes/admin.motoboys'
 import { Route as AdminEntregasRouteImport } from './routes/admin.entregas'
 import { Route as AdminConfigRouteImport } from './routes/admin.config'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MotoboyRoute = MotoboyRouteImport.update({
+  id: '/motoboy',
+  path: '/motoboy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutRoute = CheckoutRouteImport.update({
@@ -54,6 +61,11 @@ const AdminPedidosRoute = AdminPedidosRouteImport.update({
   path: '/admin/pedidos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminMotoboysRoute = AdminMotoboysRouteImport.update({
+  id: '/admin/motoboys',
+  path: '/admin/motoboys',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminEntregasRoute = AdminEntregasRouteImport.update({
   id: '/admin/entregas',
   path: '/admin/entregas',
@@ -69,9 +81,11 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/motoboy': typeof MotoboyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
+  '/admin/motoboys': typeof AdminMotoboysRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
@@ -80,9 +94,11 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/motoboy': typeof MotoboyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
+  '/admin/motoboys': typeof AdminMotoboysRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
@@ -92,9 +108,11 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/checkout': typeof CheckoutRoute
+  '/motoboy': typeof MotoboyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
+  '/admin/motoboys': typeof AdminMotoboysRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
@@ -105,9 +123,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/checkout'
+    | '/motoboy'
     | '/sitemap.xml'
     | '/admin/config'
     | '/admin/entregas'
+    | '/admin/motoboys'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/pedido/$numero'
@@ -116,9 +136,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/checkout'
+    | '/motoboy'
     | '/sitemap.xml'
     | '/admin/config'
     | '/admin/entregas'
+    | '/admin/motoboys'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/pedido/$numero'
@@ -127,9 +149,11 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/checkout'
+    | '/motoboy'
     | '/sitemap.xml'
     | '/admin/config'
     | '/admin/entregas'
+    | '/admin/motoboys'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/pedido/$numero'
@@ -139,9 +163,11 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   CheckoutRoute: typeof CheckoutRoute
+  MotoboyRoute: typeof MotoboyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   AdminConfigRoute: typeof AdminConfigRoute
   AdminEntregasRoute: typeof AdminEntregasRoute
+  AdminMotoboysRoute: typeof AdminMotoboysRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminProdutosRoute: typeof AdminProdutosRoute
   PedidoNumeroRoute: typeof PedidoNumeroRoute
@@ -154,6 +180,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/motoboy': {
+      id: '/motoboy'
+      path: '/motoboy'
+      fullPath: '/motoboy'
+      preLoaderRoute: typeof MotoboyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout': {
@@ -198,6 +231,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPedidosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/motoboys': {
+      id: '/admin/motoboys'
+      path: '/admin/motoboys'
+      fullPath: '/admin/motoboys'
+      preLoaderRoute: typeof AdminMotoboysRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/entregas': {
       id: '/admin/entregas'
       path: '/admin/entregas'
@@ -219,9 +259,11 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   CheckoutRoute: CheckoutRoute,
+  MotoboyRoute: MotoboyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   AdminConfigRoute: AdminConfigRoute,
   AdminEntregasRoute: AdminEntregasRoute,
+  AdminMotoboysRoute: AdminMotoboysRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminProdutosRoute: AdminProdutosRoute,
   PedidoNumeroRoute: PedidoNumeroRoute,
