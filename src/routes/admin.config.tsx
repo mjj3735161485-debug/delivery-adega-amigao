@@ -152,11 +152,11 @@ function AdminConfig() {
             <Input value={form.horario}
               onChange={(e) => setForm({ ...form, horario: e.target.value })} />
           </div>
-          <div>
-            <Label>Taxa de entrega (R$)</Label>
-            <Input inputMode="decimal" value={String(form.taxa_entrega)}
-              onChange={(e) => setForm({ ...form, taxa_entrega: e.target.value as unknown as number })} />
-          </div>
+        </div>
+
+        <div className="rounded-md border border-border p-3 text-xs text-muted-foreground">
+          A taxa de entrega agora é por bairro. Gerencie em{" "}
+          <a href="/admin/entregas" className="text-primary underline">Áreas de entrega</a>.
         </div>
 
         <label className="flex items-center gap-2 text-sm">

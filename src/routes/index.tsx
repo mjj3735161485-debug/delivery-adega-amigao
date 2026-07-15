@@ -107,6 +107,21 @@ function Home() {
     },
   });
 
+  const { data: minTaxa } = useQuery({
+    queryKey: ["delivery-areas", "min"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("delivery_areas")
+        .select("taxa")
+        .eq("ativo", true)
+        .order("taxa", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.taxa as number | undefined;
+    },
+  });
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
       if (cat !== "todos" && p.category_id) {
@@ -145,7 +160,8 @@ function Home() {
           </p>
           {settings && (
             <p className="mt-6 text-xs uppercase tracking-widest text-muted-foreground">
-              {settings.horario} · Entrega {brl(settings.taxa_entrega)}
+              {settings.horario}
+              {typeof minTaxa === "number" && <> · Entrega a partir de {brl(minTaxa)}</>}
               {!settings.ativo && (
                 <span className="ml-3 text-destructive">· Fechado agora</span>
               )}
