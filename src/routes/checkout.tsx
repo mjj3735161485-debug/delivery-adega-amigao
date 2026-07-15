@@ -289,6 +289,27 @@ function Checkout() {
                 onChange={(e) => setForm({ ...form, cliente_telefone: formatPhoneBR(e.target.value) })} />
             </div>
             <div>
+              <Label htmlFor="bairro">Bairro *</Label>
+              <Select
+                value={form.bairro_id}
+                onValueChange={(v) => setForm({ ...form, bairro_id: v })}
+              >
+                <SelectTrigger id="bairro">
+                  <SelectValue placeholder="Selecione seu bairro" />
+                </SelectTrigger>
+                <SelectContent>
+                  {areas.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.bairro} — {brl(Number(a.taxa))}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Entregamos apenas nos bairros listados.
+              </p>
+            </div>
+            <div>
               <div className="flex items-center justify-between mb-1">
                 <Label htmlFor="end">Endereço de entrega *</Label>
                 <Button
@@ -355,10 +376,13 @@ function Checkout() {
             </div>
             <div className="border-t border-border pt-3 text-sm space-y-1">
               <div className="flex justify-between"><span>Subtotal</span><span>{brl(subtotal)}</span></div>
-              <div className="flex justify-between"><span>Entrega</span><span>{brl(taxa)}</span></div>
+              <div className="flex justify-between">
+                <span>Entrega {bairroSel ? `(${bairroSel.bairro})` : ""}</span>
+                <span>{bairroSel ? brl(taxa) : "—"}</span>
+              </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Enviar pelo WhatsApp
             </Button>
