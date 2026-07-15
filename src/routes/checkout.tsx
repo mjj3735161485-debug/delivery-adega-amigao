@@ -12,6 +12,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   RadioGroup,
   RadioGroupItem,
 } from "@/components/ui/radio-group";
@@ -22,6 +29,7 @@ import { reverseGeocode } from "@/lib/geocode.functions";
 const schema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
   cliente_telefone: z.string().trim().refine((v) => onlyDigits(v).length >= 10, "Telefone inválido"),
+  bairro_id: z.string().uuid("Selecione um bairro atendido"),
   endereco: z.string().trim().min(10, "Endereço muito curto").max(300),
   pagamento: z.enum(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"]),
   troco_para: z.string().optional(),
@@ -52,6 +60,7 @@ function Checkout() {
   const [form, setForm] = useState({
     cliente_nome: "",
     cliente_telefone: "",
+    bairro_id: "",
     endereco: "",
     pagamento: "Pix" as z.infer<typeof schema>["pagamento"],
     troco_para: "",
@@ -63,14 +72,28 @@ function Checkout() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("store_settings")
-        .select("nome, whatsapp, taxa_entrega")
+        .select("nome, whatsapp")
         .single();
       if (error) throw error;
       return data;
     },
   });
 
-  const taxa = Number(settings?.taxa_entrega ?? 0);
+  const { data: areas = [] } = useQuery({
+    queryKey: ["delivery-areas"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("delivery_areas")
+        .select("id, bairro, taxa")
+        .eq("ativo", true)
+        .order("bairro");
+      if (error) throw error;
+      return data as { id: string; bairro: string; taxa: number }[];
+    },
+  });
+
+  const bairroSel = areas.find((a) => a.id === form.bairro_id);
+  const taxa = Number(bairroSel?.taxa ?? 0);
   const total = subtotal + taxa;
 
   function focusEndereco() {
@@ -168,6 +191,7 @@ function Checkout() {
         _order: {
           cliente_nome: parsed.data.cliente_nome,
           cliente_telefone: onlyDigits(parsed.data.cliente_telefone),
+          bairro_id: parsed.data.bairro_id,
           endereco: parsed.data.endereco,
           pagamento: parsed.data.pagamento,
           troco_para:
@@ -196,12 +220,12 @@ function Checkout() {
         ...items.map((i) => `• ${i.quantidade}x ${i.nome} — ${brl(i.preco * i.quantidade)}`),
         "",
         `Subtotal: ${brl(subtotal)}`,
-        `Entrega: ${brl(taxa)}`,
+        `Entrega (${bairroSel?.bairro}): ${brl(taxa)}`,
         `*Total: ${brl(total)}*`,
         "",
         `👤 ${parsed.data.cliente_nome}`,
         `📱 ${formatPhoneBR(parsed.data.cliente_telefone)}`,
-        `📍 ${parsed.data.endereco}`,
+        `📍 ${parsed.data.endereco} — ${bairroSel?.bairro}`,
         `💳 ${parsed.data.pagamento}${
           parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
             ? ` (troco para ${brl(Number(parsed.data.troco_para.replace(",", ".")))})`
