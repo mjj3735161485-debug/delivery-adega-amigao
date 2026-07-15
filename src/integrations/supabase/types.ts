@@ -73,8 +73,11 @@ export type Database = {
       couriers: {
         Row: {
           ativo: boolean
+          comissao_percent: number
           created_at: string
           id: string
+          limite_comissao_mes: number
+          meta_entregas_mes: number
           nome: string
           telefone: string
           updated_at: string
@@ -82,8 +85,11 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          comissao_percent?: number
           created_at?: string
           id?: string
+          limite_comissao_mes?: number
+          meta_entregas_mes?: number
           nome: string
           telefone: string
           updated_at?: string
@@ -91,8 +97,11 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          comissao_percent?: number
           created_at?: string
           id?: string
+          limite_comissao_mes?: number
+          meta_entregas_mes?: number
           nome?: string
           telefone?: string
           updated_at?: string
@@ -400,8 +409,13 @@ export type Database = {
     }
     Functions: {
       accept_order: { Args: { _numero: number }; Returns: Json }
+      admin_month_report: { Args: { _ref: string }; Returns: Json }
       admin_register_courier: {
         Args: { _nome: string; _telefone: string; _user_id: string }
+        Returns: Json
+      }
+      courier_month_summary: {
+        Args: { _courier_id: string; _ref: string }
         Returns: Json
       }
       get_courier_for_order: {
