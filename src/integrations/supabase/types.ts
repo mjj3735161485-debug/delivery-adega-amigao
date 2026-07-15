@@ -38,6 +38,68 @@ export type Database = {
         }
         Relationships: []
       }
+      courier_presence: {
+        Row: {
+          courier_id: string
+          lat: number | null
+          lng: number | null
+          online: boolean
+          updated_at: string
+        }
+        Insert: {
+          courier_id: string
+          lat?: number | null
+          lng?: number | null
+          online?: boolean
+          updated_at?: string
+        }
+        Update: {
+          courier_id?: string
+          lat?: number | null
+          lng?: number | null
+          online?: boolean
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "courier_presence_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: true
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      couriers: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          id: string
+          nome: string
+          telefone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome: string
+          telefone: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          id?: string
+          nome?: string
+          telefone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       delivery_areas: {
         Row: {
           ativo: boolean
@@ -112,11 +174,14 @@ export type Database = {
       }
       orders: {
         Row: {
+          accepted_at: string | null
           access_token: string
           bairro: string | null
           cliente_nome: string
           cliente_telefone: string
+          courier_id: string | null
           created_at: string
+          delivered_at: string | null
           endereco: string
           id: string
           numero: number
@@ -130,11 +195,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          accepted_at?: string | null
           access_token?: string
           bairro?: string | null
           cliente_nome: string
           cliente_telefone: string
+          courier_id?: string | null
           created_at?: string
+          delivered_at?: string | null
           endereco: string
           id?: string
           numero?: number
@@ -148,11 +216,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          accepted_at?: string | null
           access_token?: string
           bairro?: string | null
           cliente_nome?: string
           cliente_telefone?: string
+          courier_id?: string | null
           created_at?: string
+          delivered_at?: string | null
           endereco?: string
           id?: string
           numero?: number
@@ -165,7 +236,15 @@ export type Database = {
           troco_para?: number | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "orders_courier_id_fkey"
+            columns: ["courier_id"]
+            isOneToOne: false
+            referencedRelation: "couriers"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       products: {
         Row: {
@@ -279,6 +358,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_order: { Args: { _numero: number }; Returns: Json }
+      admin_register_courier: {
+        Args: { _nome: string; _telefone: string; _user_id: string }
+        Returns: Json
+      }
+      get_courier_for_order: {
+        Args: { _numero: number; _token: string }
+        Returns: Json
+      }
       get_order_by_token: {
         Args: { _numero: number; _token: string }
         Returns: Json
@@ -290,10 +378,15 @@ export type Database = {
         }
         Returns: boolean
       }
+      mark_delivered: { Args: { _numero: number }; Returns: Json }
       place_order: { Args: { _items: Json; _order: Json }; Returns: Json }
+      update_courier_presence: {
+        Args: { _lat: number; _lng: number; _online: boolean }
+        Returns: Json
+      }
     }
     Enums: {
-      app_role: "admin"
+      app_role: "admin" | "motoboy"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -421,7 +514,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin"],
+      app_role: ["admin", "motoboy"],
     },
   },
 } as const

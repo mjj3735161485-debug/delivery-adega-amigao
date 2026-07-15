@@ -1,30 +1,60 @@
-## Objetivo
-Substituir a taxa de entrega única por uma **lista de bairros atendidos** com valor específico. Pedidos só podem ser finalizados se o cliente escolher um bairro da lista.
+## O que vou construir
 
-## Mudanças no banco
-- Nova tabela `delivery_areas` (bairro, taxa, ativo) — populada com os 35 bairros informados.
-- `orders`: adicionar coluna `bairro` (texto) para registrar a área escolhida.
-- RPC `place_order`: passa a receber `bairro`, valida que existe em `delivery_areas` e está ativo, e usa a **taxa daquele bairro** (não mais `store_settings.taxa_entrega`).
-- Admin (`authenticated` com role admin) pode inserir/editar/remover bairros; leitura pública liberada (`anon`) para o checkout listar.
+Um módulo completo de motoboys integrado ao painel da Adega Amigão, com login próprio, presença noturna, aceite de entregas, comissão acumulada e localização ao vivo no site.
 
-## Checkout (`/checkout`)
-- Novo campo obrigatório **"Bairro"** (Select) acima do endereço, carregado de `delivery_areas` (só ativos, ordem alfabética).
-- Resumo lateral mostra "Entrega — {bairro}: R$ x,xx" reagindo à seleção. Sem bairro → botão desabilitado.
-- Mensagem de WhatsApp inclui o bairro.
-- Botão GPS continua funcionando para preencher rua/número; o bairro segue sendo escolhido manualmente (evita erro de geocoding).
+## Fluxo do dono (admin)
 
-## Painel admin
-- Nova rota `/admin/entregas`: tabela com bairro + taxa + toggle "ativo", adicionar/editar/excluir. Link no `AdminNav`.
-- Em `/admin/config`: remover o campo "Taxa de entrega" (agora é por bairro) e adicionar um aviso apontando para "Áreas de entrega".
+- Nova aba **"Motoboys"** em `/admin/motoboys`:
+  - Cadastrar motoboy (nome, telefone, e-mail de login, senha inicial). Ao salvar, cria conta em Auth + role `motoboy` + registro em `couriers`.
+  - Ver todos os motoboys com badge **🟢 Online** / **⚪ Offline** em tempo real.
+  - Ver **total de taxas do dia** por motoboy (soma automática das `taxa_entrega` dos pedidos que ele entregou hoje) e do mês.
+  - Ativar/desativar e resetar senha.
 
-## Site (home)
-- Hero: substituir "ENTREGA R$ 8,00" por "ENTREGA A PARTIR DE R$ 5,00" (menor taxa da lista) — calculado dinamicamente.
+- Em `/admin/pedidos`, cada pedido novo mostra qual motoboy aceitou (ou "Aguardando motoboy") e permite o dono atribuir manualmente também.
 
-## Seed inicial
-Insere os 35 bairros exatamente como enviados:
-ARUÃN 10, BARRANCO ALTO 5, BRITÂNIA 8, BENFICA 15, CIDADE JARDIM 20, CAPUTERA 15, CASA BRANCA 20, CENTRO 15, CASINHAS 1 7, CASINHAS 2 8, CASINHAS ANTIGA 10, CANTO DO MAR 10, ENSEADA 10, GAIVOTAS 10, GOLFINHO 8, INDAIÁ 10, JARAGUAZINHO 15, JARAGUÁ (SÃO SEBASTIÃO) 12, JARAGUÁ ESCOLINHA (SÃO SEBASTIÃO) 15, JARDIM JAQUEIRA 12, MORRO DO ALGODÃO 8, MARTIM DE SÁ 15, OLARIA 20, PORTO NOVO 5, PONTAL SANTA MARINA 7, POIARES 10, PRAINHA 20, PEREQUÊ MIRIM 8, PEGORELLY 7, RIO CLARO 12, RIO DO OURO 20, SUMARÉ 15, TARUMÃ 7, TRAVESSÃO 7, TINGA 15, VARAPESCA 7.
+## Fluxo do motoboy
+
+- Nova rota `/motoboy` (login exclusivo, redireciona quem não tem role `motoboy`):
+  - Ao logar **entre 19h e 00h**, entra automaticamente como **online** e o navegador começa a enviar GPS a cada 15s (`navigator.geolocation.watchPosition`). Fora desse horário, mostra aviso "Turno fecha das 19h às 00h" e não fica online.
+  - Lista de **pedidos disponíveis** (status `novo`, sem motoboy) em tempo real (Supabase Realtime). Botão **"Aceitar entrega"** trava o pedido para ele.
+  - Lista **"Minhas entregas"** do turno com endereço, bairro, valor da taxa que ele vai receber, e botão **"Marcar como entregue"**.
+  - Rodapé mostra a soma acumulada de taxas do turno.
+
+## Fluxo do cliente
+
+- Na página de sucesso `/pedido/$numero`, quando um motoboy aceita e está a caminho, aparece um card **"Seu entregador está a caminho"** com:
+  - Nome do motoboy.
+  - Mini-mapa (Google Maps embed com a chave `GOOGLE_MAPS_BROWSER_KEY`) mostrando a posição atual dele + o endereço de entrega, atualizando via Realtime.
+  - Só aparece após o motoboy aceitar o pedido; some quando marcado como entregue.
+
+## Modelo de dados (migração)
+
+- Enum `app_role` ganha valor `motoboy`.
+- Tabela `couriers`: `user_id` (FK auth), `nome`, `telefone`, `ativo`.
+- Tabela `courier_presence`: `courier_id`, `online` bool, `lat`, `lng`, `updated_at`. Atualizada pelo próprio motoboy via RPC `update_presence` (SECURITY DEFINER, valida horário 19h–00h e que quem chama é o próprio motoboy).
+- `orders` ganha colunas: `courier_id` (nullable), `accepted_at`, `delivered_at`.
+- RPC `accept_order(numero)` — SECURITY DEFINER, trava o pedido pro motoboy que chamou (usa `UPDATE ... WHERE courier_id IS NULL` pra evitar corrida).
+- RPC `mark_delivered(numero)` — marca entregue e trava valor no acumulado.
+- RPC pública `get_courier_for_order(numero, token)` — retorna `{nome, lat, lng, online}` só se o token do pedido bater (mesmo padrão de `get_order_by_token`, sem expor toda a tabela).
+- RLS:
+  - `couriers` e `courier_presence`: motoboy vê/edita só o próprio; admin vê todos.
+  - Grants estritos: nada de leitura pública direta em `couriers`; cliente só acessa via RPC com token.
+- Realtime habilitado em `orders` e `courier_presence`.
 
 ## Detalhes técnicos
-- Migração cria `delivery_areas` com GRANT `SELECT` para `anon`+`authenticated` e escrita só via policy `has_role(auth.uid(),'admin')`.
-- `place_order` (SECURITY DEFINER) lê taxa por `id` do bairro passado pelo cliente, garantindo que o preço não pode ser adulterado.
-- Frontend usa `useQuery(['delivery-areas'])` cacheado, invalidado no admin ao salvar.
+
+- Login: reaproveita `/auth`; após login, um novo helper `useRoleRedirect` manda admin para `/admin/pedidos` e motoboy para `/motoboy`.
+- Novo hook `useCourierGuard` (espelho do `useAdminGuard`) para proteger `/motoboy/*`.
+- Presença: intervalo de 15s no cliente + `watchPosition({ enableHighAccuracy: true })`. Se GPS negado, motoboy fica visível como online mas sem mapa (aviso pro cliente: "Localização indisponível").
+- Janela 19h–00h validada **no servidor** (RPC), usando timezone `America/Sao_Paulo` — cliente não consegue burlar mudando relógio.
+- Comissão: query agregada `SUM(taxa_entrega) FILTER (WHERE delivered_at::date = current_date)` por motoboy, exibida no admin e no painel do próprio motoboy.
+- Mapa do cliente: iframe do Google Maps Embed API (`/maps/embed/v1/directions`) traçando rota motoboy → endereço, re-renderizado a cada update do Realtime. Sem custo extra de JS SDK.
+- Chave `GOOGLE_MAPS_BROWSER_KEY` já está provisionada pelo conector.
+
+## O que **não** vou fazer nesta entrega (para manter escopo)
+
+- App nativo do motoboy (fica web, mas funciona no celular — PWA opcional depois).
+- Pagamento/repasse da comissão (só exibe a soma; transferência real é fora do sistema).
+- Histórico de rotas passadas em mapa (só posição atual).
+
+Confirma que posso seguir com esse escopo?
