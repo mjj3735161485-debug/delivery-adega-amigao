@@ -4,7 +4,7 @@ import { z } from "zod";
 const GATEWAY_URL = "https://connector-gateway.lovable.dev/google_maps";
 
 export type ReverseGeocodeResult =
-  | { ok: true; address: string }
+  | { ok: true; address: string; neighborhood: string | null }
   | { ok: false; code: "not_configured" | "no_results" | "upstream" };
 
 export const reverseGeocode = createServerFn({ method: "POST" })
@@ -49,7 +49,14 @@ export const reverseGeocode = createServerFn({ method: "POST" })
       }
       return (await res.json()) as {
         status: string;
-        results: Array<{ formatted_address: string }>;
+        results: Array<{
+          formatted_address: string;
+          address_components?: Array<{
+            long_name: string;
+            short_name: string;
+            types: string[];
+          }>;
+        }>;
       };
     }
 
@@ -63,5 +70,23 @@ export const reverseGeocode = createServerFn({ method: "POST" })
     if (json.status !== "OK" || !json.results?.length) {
       return { ok: false, code: "no_results" };
     }
-    return { ok: true, address: json.results[0].formatted_address };
+    // Extrai bairro dos address_components (tenta em todos os resultados)
+    let neighborhood: string | null = null;
+    const preferOrder = [
+      "sublocality_level_1",
+      "sublocality",
+      "neighborhood",
+      "administrative_area_level_4",
+      "administrative_area_level_3",
+    ];
+    outer: for (const t of preferOrder) {
+      for (const r of json.results) {
+        const comp = r.address_components?.find((c) => c.types.includes(t));
+        if (comp) {
+          neighborhood = comp.long_name;
+          break outer;
+        }
+      }
+    }
+    return { ok: true, address: json.results[0].formatted_address, neighborhood };
   });
