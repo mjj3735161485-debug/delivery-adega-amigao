@@ -10,6 +10,9 @@ import { toast } from "sonner";
 
 export const Route = createFileRoute("/conta")({
   component: CustomerAuthPage,
+  validateSearch: (s: Record<string, unknown>) => ({
+    next: typeof s.next === "string" ? s.next : "",
+  }),
   head: () => ({
     meta: [
       { title: "Entrar — Adega Amigão" },
@@ -30,26 +33,42 @@ function CustomerAuthPage() {
   const [loading, setLoading] = useState(false);
   const [appleLoading, setAppleLoading] = useState(false);
   const navigate = useNavigate();
+  const { next } = Route.useSearch();
+
+  // Only accept same-origin relative paths for the post-login destination.
+  const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "";
+
+  function goNext() {
+    if (safeNext) {
+      window.location.href = safeNext;
+      return;
+    }
+    navigate({ to: "/minha-conta" });
+  }
 
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
-      if (data.session) navigate({ to: "/minha-conta" });
+      if (data.session) goNext();
     })();
-  }, [navigate]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleApple() {
     setAppleLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("apple", {
-        redirect_uri: window.location.origin + "/conta",
+        redirect_uri:
+          window.location.origin +
+          "/conta" +
+          (safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""),
       });
       if (result.error) {
         toast.error("Não foi possível entrar com Apple.");
         return;
       }
       if (result.redirected) return;
-      navigate({ to: "/minha-conta" });
+      goNext();
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro";
       toast.error(msg);
@@ -65,11 +84,14 @@ function CustomerAuthPage() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate({ to: "/minha-conta" });
+        goNext();
       } else {
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: `${window.location.origin}/minha-conta` },
+          options: {
+            emailRedirectTo:
+              window.location.origin + (safeNext || "/minha-conta"),
+          },
         });
         if (error) throw error;
         toast.success("Conta criada! Confirme seu email para entrar.");
