@@ -164,7 +164,7 @@ function AdminUsuarios() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <RoleToggle
                         label="Admin"
                         active={isA}
@@ -181,20 +181,24 @@ function AdminUsuarios() {
                       {isM && (
                         <Button
                           type="button"
-                          size="sm"
-                          variant={u.courier_ativo ? "outline" : "default"}
+                          size="default"
+                          className={
+                            u.courier_ativo
+                              ? "bg-red-600 hover:bg-red-700 text-white font-semibold shadow-[0_0_0_2px_rgba(220,38,38,0.35)]"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold shadow-[0_0_0_2px_rgba(16,185,129,0.35)]"
+                          }
                           disabled={pending === `${u.user_id}:ativo`}
                           onClick={() => setAtivo(u.user_id, !u.courier_ativo)}
                           title={u.courier_ativo ? "Desativar login/atuação" : "Aprovar e ativar"}
                         >
                           {pending === `${u.user_id}:ativo` ? (
-                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
                           ) : u.courier_ativo ? (
-                            <PowerOff className="h-3 w-3 mr-1" />
+                            <PowerOff className="h-4 w-4 mr-1" />
                           ) : (
-                            <Power className="h-3 w-3 mr-1" />
+                            <Power className="h-4 w-4 mr-1" />
                           )}
-                          {u.courier_ativo ? "Desativar" : "Aprovar"}
+                          {u.courier_ativo ? "Desativar login" : "Aprovar login"}
                         </Button>
                       )}
                     </div>
@@ -205,9 +209,11 @@ function AdminUsuarios() {
           )}
         </section>
 
-        <p className="text-[11px] text-muted-foreground">
-          Dica: motoboys recém-concedidos ficam <strong>inativos</strong>. Ative e configure
-          comissão/diária em <em>Motoboys</em>.
+        <p className="text-xs bg-yellow-400/15 border border-yellow-400/60 text-yellow-200 rounded-lg px-3 py-2">
+          <strong>Dica:</strong> motoboys recém-cadastrados ficam <strong>inativos</strong>. Use o
+          botão verde <strong>"Aprovar login"</strong> para liberar o acesso, e o botão vermelho
+          <strong> "Desativar login"</strong> para bloquear. Perfis podem ser removidos com os
+          botões vermelhos <em>Remover Admin/Motoboy</em>.
         </p>
       </main>
     </div>
@@ -240,7 +246,12 @@ function RoleToggle({
     <Button
       type="button"
       size="sm"
-      variant={active ? "default" : "outline"}
+      variant={active ? "destructive" : "default"}
+      className={
+        active
+          ? "bg-red-600 hover:bg-red-700 text-white font-semibold"
+          : "bg-emerald-600 hover:bg-emerald-700 text-white font-semibold"
+      }
       disabled={loading || disabled}
       onClick={onClick}
       title={disabled ? "Não é possível remover o próprio admin" : undefined}
