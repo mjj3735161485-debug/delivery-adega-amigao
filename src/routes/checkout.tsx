@@ -510,6 +510,7 @@ function Checkout() {
                   if (areaStatus !== "idle") {
                     setDetected(null);
                     setAreaStatus("idle");
+                    setLocationMeta(null);
                     setForm((f) => ({ ...f, bairro_id: "" }));
                   }
                 }} />
