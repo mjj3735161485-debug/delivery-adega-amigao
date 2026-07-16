@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, MessageSquareText } from "lucide-react";
+import { Loader2, MessageSquareText, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 import { AdminNav } from "@/components/AdminNav";
@@ -47,6 +47,21 @@ function AdminConfig() {
   const [form, setForm] = useState<Settings | null>(null);
   const [saving, setSaving] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [pwdOpen, setPwdOpen] = useState(false);
+  const [newPwd, setNewPwd] = useState("");
+  const [confirmPwd, setConfirmPwd] = useState("");
+  const [changingPwd, setChangingPwd] = useState(false);
+
+  async function changePassword() {
+    if (newPwd.length < 8) return toast.error("Senha deve ter no mínimo 8 caracteres");
+    if (newPwd !== confirmPwd) return toast.error("As senhas não conferem");
+    setChangingPwd(true);
+    const { error } = await supabase.auth.updateUser({ password: newPwd });
+    setChangingPwd(false);
+    if (error) return toast.error(error.message);
+    toast.success("Senha alterada com sucesso");
+    setNewPwd(""); setConfirmPwd(""); setPwdOpen(false);
+  }
 
   const { data } = useQuery({
     queryKey: ["admin", "settings"],
@@ -206,6 +221,50 @@ function AdminConfig() {
                   </Button>
                   <Button type="button" onClick={openTestWhatsApp}>
                     Abrir WhatsApp
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
+
+        <div className="mt-6 rounded-lg border border-border p-4 space-y-3">
+          <div className="flex items-start gap-3">
+            <KeyRound className="h-5 w-5 text-muted-foreground mt-0.5" />
+            <div>
+              <h2 className="font-semibold">Trocar minha senha</h2>
+              <p className="text-sm text-muted-foreground">
+                Altere a senha da sua conta de acesso ao painel.
+              </p>
+            </div>
+          </div>
+          <Dialog open={pwdOpen} onOpenChange={setPwdOpen}>
+            <DialogTrigger asChild>
+              <Button type="button" variant="secondary">Trocar senha</Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>Nova senha</DialogTitle>
+                <DialogDescription>Mínimo 8 caracteres.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="new-pwd">Nova senha</Label>
+                  <Input id="new-pwd" type="password" value={newPwd}
+                    onChange={(e) => setNewPwd(e.target.value)} />
+                </div>
+                <div>
+                  <Label htmlFor="confirm-pwd">Confirmar nova senha</Label>
+                  <Input id="confirm-pwd" type="password" value={confirmPwd}
+                    onChange={(e) => setConfirmPwd(e.target.value)} />
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="outline" onClick={() => setPwdOpen(false)}>
+                    Cancelar
+                  </Button>
+                  <Button type="button" onClick={changePassword} disabled={changingPwd}>
+                    {changingPwd && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Salvar senha
                   </Button>
                 </div>
               </div>
