@@ -245,6 +245,19 @@ function MotoboyPage() {
   const totalMes = mesEntregas.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const countMes = mesEntregas.length;
   const mediaMes = countMes > 0 ? totalMes / countMes : 0;
+  // Semana (segunda 00:00 até agora)
+  const inicioSemana = (() => {
+    const d = new Date();
+    const dow = d.getDay(); // 0=dom
+    const diff = dow === 0 ? 6 : dow - 1;
+    d.setDate(d.getDate() - diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  })();
+  const semanaEntregues = mesEntregas.filter((o) => new Date(o.delivered_at) >= inicioSemana);
+  const countSemana = semanaEntregues.length;
+  const totalSemana = semanaEntregues.reduce((s, o) => s + Number(o.taxa_entrega), 0);
+  const countHoje = hojeEntregues.length;
   const taxaEmCurso = emCurso.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const meta = summary?.meta ?? 0;
   const progresso = meta > 0 ? Math.min(100, (countMes / meta) * 100) : 0;
