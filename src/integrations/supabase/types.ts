@@ -99,6 +99,7 @@ export type Database = {
           ativo: boolean
           comissao_percent: number
           created_at: string
+          diaria: number
           id: string
           limite_comissao_mes: number
           meta_entregas_mes: number
@@ -111,6 +112,7 @@ export type Database = {
           ativo?: boolean
           comissao_percent?: number
           created_at?: string
+          diaria?: number
           id?: string
           limite_comissao_mes?: number
           meta_entregas_mes?: number
@@ -123,6 +125,7 @@ export type Database = {
           ativo?: boolean
           comissao_percent?: number
           created_at?: string
+          diaria?: number
           id?: string
           limite_comissao_mes?: number
           meta_entregas_mes?: number

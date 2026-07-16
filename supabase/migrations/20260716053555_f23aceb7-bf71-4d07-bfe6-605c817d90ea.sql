@@ -1,0 +1,1 @@
+ALTER TABLE public.couriers ADD COLUMN IF NOT EXISTS diaria numeric NOT NULL DEFAULT 0;

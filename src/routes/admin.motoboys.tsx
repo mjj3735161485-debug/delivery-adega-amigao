@@ -34,6 +34,7 @@ type Courier = {
   comissao_percent: number;
   meta_entregas_mes: number;
   limite_comissao_mes: number;
+  diaria: number;
 };
 type Presence = { courier_id: string; online: boolean; updated_at: string };
 type DeliveredRow = { courier_id: string | null; taxa_entrega: number; delivered_at: string };
@@ -66,7 +67,7 @@ function AdminMotoboys() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("couriers")
-        .select("id, user_id, nome, telefone, ativo, comissao_percent, meta_entregas_mes, limite_comissao_mes")
+        .select("id, user_id, nome, telefone, ativo, comissao_percent, meta_entregas_mes, limite_comissao_mes, diaria")
         .order("nome");
       if (error) throw error;
       return data as Courier[];
@@ -148,7 +149,7 @@ function AdminMotoboys() {
     }
   }
 
-  async function salvarConfig(c: Courier, patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes">>) {
+  async function salvarConfig(c: Courier, patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes" | "diaria">>) {
     const { error } = await supabase.from("couriers").update(patch).eq("id", c.id);
     if (error) { toast.error(error.message); return; }
     toast.success(`Configuração de ${c.nome} salva`);
@@ -316,17 +317,19 @@ function CourierCard({
   entregasHoje: number;
   onToggle: () => void;
   onExcluir: () => void;
-  onSalvar: (patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes">>) => Promise<void>;
+  onSalvar: (patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes" | "diaria">>) => Promise<void>;
 }) {
   const [percent, setPercent] = useState(String(c.comissao_percent));
   const [meta, setMeta] = useState(String(c.meta_entregas_mes));
   const [limite, setLimite] = useState(String(c.limite_comissao_mes));
+  const [diaria, setDiaria] = useState(String(c.diaria ?? 0));
   const [saving, setSaving] = useState(false);
 
   const dirty =
     Number(percent) !== Number(c.comissao_percent) ||
     Number(meta) !== Number(c.meta_entregas_mes) ||
-    Number(limite) !== Number(c.limite_comissao_mes);
+    Number(limite) !== Number(c.limite_comissao_mes) ||
+    Number(diaria) !== Number(c.diaria ?? 0);
 
   async function salvar() {
     setSaving(true);
@@ -335,6 +338,7 @@ function CourierCard({
         comissao_percent: Number(percent),
         meta_entregas_mes: Number(meta),
         limite_comissao_mes: Number(limite),
+        diaria: Number(diaria),
       });
     } finally { setSaving(false); }
   }
@@ -358,7 +362,11 @@ function CourierCard({
           <Trash2 className="h-4 w-4 text-destructive" />
         </Button>
       </div>
-      <div className="grid grid-cols-3 gap-2 pt-2 border-t border-border">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-border">
+        <div>
+          <Label className="text-[10px] uppercase text-muted-foreground">Diária R$</Label>
+          <Input type="number" min={0} step={5} value={diaria} onChange={(e) => setDiaria(e.target.value)} />
+        </div>
         <div>
           <Label className="text-[10px] uppercase text-muted-foreground">% Comissão</Label>
           <Input type="number" min={0} max={100} step={1} value={percent} onChange={(e) => setPercent(e.target.value)} />
@@ -379,7 +387,7 @@ function CourierCard({
         </Button>
       )}
       <p className="text-[10px] text-muted-foreground">
-        Motoboy recebe {c.comissao_percent}% da taxa. Teto {c.limite_comissao_mes > 0 ? brl(c.limite_comissao_mes) : "sem limite"}. Meta {c.meta_entregas_mes || "sem meta"}.
+        Diária {brl(c.diaria ?? 0)} + {c.comissao_percent}% da taxa. Teto {c.limite_comissao_mes > 0 ? brl(c.limite_comissao_mes) : "sem limite"}. Meta {c.meta_entregas_mes || "sem meta"}.
       </p>
     </div>
   );
