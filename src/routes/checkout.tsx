@@ -439,27 +439,6 @@ function Checkout() {
                 onChange={(e) => setForm({ ...form, cliente_telefone: formatPhoneBR(e.target.value) })} />
             </div>
             <div>
-              <Label htmlFor="bairro">Bairro *</Label>
-              <Select
-                value={form.bairro_id}
-                onValueChange={(v) => setForm({ ...form, bairro_id: v })}
-              >
-                <SelectTrigger id="bairro">
-                  <SelectValue placeholder="Selecione seu bairro" />
-                </SelectTrigger>
-                <SelectContent>
-                  {areas.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {a.bairro} — {brl(Number(a.taxa))}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-muted-foreground mt-1">
-                Entregamos apenas nos bairros listados.
-              </p>
-            </div>
-            <div>
               <div className="flex items-center justify-between mb-1">
                 <Label htmlFor="end">Endereço de entrega *</Label>
                 <Button
@@ -480,10 +459,63 @@ function Checkout() {
               </div>
               <Textarea id="end" rows={3} placeholder="Rua, número, complemento, bairro"
                 value={form.endereco}
-                onChange={(e) => setForm({ ...form, endereco: e.target.value })} />
-              <p className="text-[11px] text-muted-foreground mt-1" aria-live="polite">
-                Se o GPS não funcionar, é só digitar rua, número, bairro e ponto de referência.
-              </p>
+                onChange={(e) => {
+                  setForm({ ...form, endereco: e.target.value });
+                  if (areaStatus !== "idle") {
+                    setDetected(null);
+                    setAreaStatus("idle");
+                    setForm((f) => ({ ...f, bairro_id: "" }));
+                  }
+                }} />
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <p className="text-[11px] text-muted-foreground" aria-live="polite">
+                  Toque em <b>Usar minha localização</b> para calcular a taxa automaticamente.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleCalcTaxa}
+                  disabled={calculating || locating}
+                  className="h-7 px-2 text-xs shrink-0"
+                >
+                  {calculating ? (
+                    <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  ) : (
+                    <Calculator className="h-3.5 w-3.5 mr-1" />
+                  )}
+                  Calcular taxa
+                </Button>
+              </div>
+              {areaStatus === "ok" && detected && (
+                <div className="mt-2 flex items-center gap-2 text-xs text-emerald-500">
+                  <CheckCircle2 className="h-4 w-4" />
+                  Entregamos em <b>{detected.bairro}</b> — taxa {brl(detected.taxa)}.
+                </div>
+              )}
+              {areaStatus === "out_of_area" && (
+                <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs">
+                  <div className="flex items-center gap-2 text-destructive font-medium">
+                    <XCircle className="h-4 w-4" />
+                    Ainda não entregamos em {outOfAreaName ?? "seu bairro"}.
+                  </div>
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
+                      Ver bairros atendidos ({areas.length})
+                    </summary>
+                    <div className="mt-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
+                      {areas.map((a) => (
+                        <span key={a.id}>{a.bairro} — {brl(Number(a.taxa))}</span>
+                      ))}
+                    </div>
+                  </details>
+                </div>
+              )}
+              {areaStatus === "unknown" && (
+                <p className="mt-2 text-xs text-amber-500">
+                  Não conseguimos identificar seu bairro. Inclua o nome do bairro no endereço e toque em <b>Calcular taxa</b>.
+                </p>
+              )}
             </div>
             <div>
               <Label>Pagamento na entrega *</Label>
@@ -527,8 +559,8 @@ function Checkout() {
             <div className="border-t border-border pt-3 text-sm space-y-1">
               <div className="flex justify-between"><span>Subtotal</span><span>{brl(subtotal)}</span></div>
               <div className="flex justify-between">
-                <span>Entrega {bairroSel ? `(${bairroSel.bairro})` : ""}</span>
-                <span>{bairroSel ? brl(taxa) : "—"}</span>
+                <span>Entrega {detected ? `(${detected.bairro})` : ""}</span>
+                <span>{detected ? brl(taxa) : "—"}</span>
               </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
