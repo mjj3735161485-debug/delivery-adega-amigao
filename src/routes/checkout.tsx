@@ -567,7 +567,7 @@ function Checkout() {
               </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {lojaFechada ? "Loja fechada" : "Enviar pelo WhatsApp"}
             </Button>
