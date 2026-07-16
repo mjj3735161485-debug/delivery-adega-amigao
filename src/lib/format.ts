@@ -3,6 +3,12 @@ export const brl = (n: number) =>
 
 export const onlyDigits = (s: string) => s.replace(/\D+/g, "");
 
+export function withCountryCode(v: string, cc = "55") {
+  const d = onlyDigits(v);
+  if (!d) return "";
+  return d.startsWith(cc) ? d : cc + d;
+}
+
 export function formatPhoneBR(v: string) {
   const d = onlyDigits(v).slice(0, 11);
   if (d.length <= 2) return d;
