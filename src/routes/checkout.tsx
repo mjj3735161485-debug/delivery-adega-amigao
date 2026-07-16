@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { reverseGeocode } from "@/lib/geocode.functions";
 import { forwardGeocode } from "@/lib/route.functions";
+import { notifyOrder } from "@/lib/notify-order.functions";
 import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
 import { CheckoutLocationMap } from "@/components/CheckoutLocationMap";
 
