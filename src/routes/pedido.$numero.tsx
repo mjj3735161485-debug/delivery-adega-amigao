@@ -206,6 +206,8 @@ function LiveTracker({
   const polyline = useRef<any>(null);
   const lastRouteAt = useRef<number>(0);
   const [alertsOn, setAlertsOn] = useState(false);
+  const [etaSec, setEtaSec] = useState<number | null>(null);
+  const [routeDist, setRouteDist] = useState<number | null>(null);
   const audioCtx = useRef<AudioContext | null>(null);
   const alertKey = `adega-arriving-${numero}`;
   const routeFn = useServerFn(computeRoute);
@@ -302,6 +304,8 @@ function LiveTracker({
       try {
         const r = await routeFn({ data: { oLat: cLat, oLng: cLng, dLat, dLng } });
         if (!r.ok || !mapObj.current) return;
+        if (typeof r.durationSec === "number") setEtaSec(r.durationSec);
+        if (typeof (r as any).distanceMeters === "number") setRouteDist((r as any).distanceMeters);
         const g = (window as any).google;
         const path = g.maps.geometry.encoding.decodePath(r.encodedPolyline);
         if (polyline.current) polyline.current.setMap(null);
@@ -399,6 +403,16 @@ function LiveTracker({
                 <> · a <strong className="text-primary">{distMeters < 1000 ? `${distMeters} m` : `${(distMeters / 1000).toFixed(1)} km`}</strong></>
               )}
             </p>
+            {etaSec != null && (
+              <p className="text-sm mt-1">
+                Chega em <strong className="text-primary">
+                  {etaSec < 60 ? "menos de 1 min" : `~${Math.max(1, Math.round(etaSec / 60))} min`}
+                </strong>
+                {routeDist != null && (
+                  <> · <span className="text-muted-foreground">{routeDist < 1000 ? `${routeDist} m` : `${(routeDist / 1000).toFixed(1)} km`} pela rota</span></>
+                )}
+              </p>
+            )}
           </div>
         </div>
         <Button
