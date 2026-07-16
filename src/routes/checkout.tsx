@@ -729,21 +729,73 @@ function Checkout() {
                 onValueChange={(v) => setForm({ ...form, pagamento: v as typeof form.pagamento })}
                 className="grid grid-cols-2 gap-2 mt-2"
               >
-                {(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"] as const).map((p) => (
+                {(["Dinheiro", "Pix", "Cartão", "Misto"] as const).map((p) => (
                   <Label key={p} className="flex items-center gap-2 border border-border rounded-md p-3 cursor-pointer hover:border-primary/50">
-                    <RadioGroupItem value={p} /> {p}
+                    <RadioGroupItem value={p} />
+                    <div className="flex flex-col">
+                      <span>{p}</span>
+                      {p === "Cartão" && (
+                        <span className="text-[10px] text-muted-foreground">Débito ou crédito</span>
+                      )}
+                      {p === "Misto" && (
+                        <span className="text-[10px] text-muted-foreground">Cartão + dinheiro</span>
+                      )}
+                    </div>
                   </Label>
                 ))}
               </RadioGroup>
             </div>
-            {form.pagamento === "Dinheiro" && (
+            {form.pagamento === "Misto" && (() => {
+              const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
+              const vCartao = parseMoney(form.valor_cartao);
+              const vDinheiro = Math.max(0, Number(total) - (isNaN(vCartao) ? 0 : vCartao));
+              const vTrocoPara = parseMoney(form.troco_para);
+              const vTroco = vTrocoPara > 0 ? Math.max(0, vTrocoPara - vDinheiro) : 0;
+              return (
+                <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                  <div>
+                    <Label htmlFor="vcartao">Valor no cartão *</Label>
+                    <Input id="vcartao" inputMode="decimal" placeholder="Ex: 130"
+                      value={form.valor_cartao}
+                      onChange={(e) => setForm({ ...form, valor_cartao: e.target.value })} />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Total do pedido: <b className="text-foreground">{brl(total)}</b> · Restante em dinheiro: <b className="text-emerald-400">{brl(vDinheiro)}</b>
+                  </div>
+                  {vDinheiro > 0 && (
+                    <div>
+                      <Label htmlFor="troco">Troco para (opcional)</Label>
+                      <Input id="troco" inputMode="decimal" placeholder={`Ex: ${Math.ceil(vDinheiro / 10) * 10}`}
+                        value={form.troco_para}
+                        onChange={(e) => setForm({ ...form, troco_para: e.target.value })} />
+                      {vTrocoPara > 0 && vTrocoPara >= vDinheiro && (
+                        <p className="mt-1 text-xs text-emerald-400">
+                          Troco automático: <b>{brl(vTroco)}</b>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {form.pagamento === "Dinheiro" && (() => {
+              const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
+              const vTrocoPara = parseMoney(form.troco_para);
+              const vTroco = vTrocoPara > 0 ? Math.max(0, vTrocoPara - Number(total)) : 0;
+              return (
               <div>
                 <Label htmlFor="troco">Troco para (opcional)</Label>
                 <Input id="troco" inputMode="decimal" placeholder="Ex: 100"
                   value={form.troco_para}
                   onChange={(e) => setForm({ ...form, troco_para: e.target.value })} />
+                  {vTrocoPara > 0 && vTrocoPara >= Number(total) && (
+                    <p className="mt-1 text-xs text-emerald-400">
+                      Troco automático: <b>{brl(vTroco)}</b>
+                    </p>
+                  )}
               </div>
-            )}
+              );
+            })()}
             <div>
               <Label htmlFor="obs">Observações</Label>
               <Textarea id="obs" rows={2} value={form.observacoes}
