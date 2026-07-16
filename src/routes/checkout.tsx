@@ -71,6 +71,10 @@ function Checkout() {
     "idle" | "ok" | "out_of_area" | "unknown"
   >("idle");
   const [outOfAreaName, setOutOfAreaName] = useState<string | null>(null);
+  const [locationMeta, setLocationMeta] = useState<{
+    accuracy: number;
+    updatedAt: Date;
+  } | null>(null);
   const storeOpen = useStoreOpen();
   const lojaFechada = storeOpen.data ? !storeOpen.data.aberto : false;
 
