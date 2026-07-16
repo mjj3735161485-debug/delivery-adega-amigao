@@ -210,12 +210,26 @@ function AdminPedidos() {
                   <div className="flex items-center gap-2">
                     <h2 className="font-display text-xl">#{o.numero}</h2>
                     <StatusBadge s={o.status} />
+                    {o.tipo_entrega === "retirada" ? (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-300 border-emerald-500/40">
+                        🏪 Retirada
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full border bg-primary/15 text-primary border-primary/40">
+                        🛵 Entrega
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   <p className="text-sm mt-1">{o.cliente_nome} · {formatPhoneBR(o.cliente_telefone)}</p>
                   <p className="text-xs text-muted-foreground">{o.endereco}</p>
+                  {o.tipo_entrega === "retirada" && (
+                    <p className="text-[11px] text-emerald-400 mt-0.5">
+                      Cliente vai retirar — avança automaticamente a cada 5 min.
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-display font-bold text-primary text-xl">{brl(Number(o.total))}</p>
