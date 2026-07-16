@@ -170,6 +170,9 @@ function AdminPedidos() {
             <Button asChild variant="outline" size="sm">
               <Link to="/admin/config">Config</Link>
             </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin/horarios">Horários</Link>
+            </Button>
             <Button asChild variant="ghost" size="sm">
               <Link to="/">Loja</Link>
             </Button>
