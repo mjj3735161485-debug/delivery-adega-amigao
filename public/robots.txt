@@ -4,5 +4,13 @@ Disallow: /admin
 Disallow: /auth
 Disallow: /checkout
 Disallow: /pedido
+Disallow: /pedidos
+Disallow: /minha-conta
+Disallow: /conta
+Disallow: /motoboy
+Disallow: /mcp
+Disallow: /.mcp
+Disallow: /.well-known
+Disallow: /.lovable
 
 Sitemap: https://sip-n-serve-bot.lovable.app/sitemap.xml
