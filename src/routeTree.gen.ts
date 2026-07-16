@@ -26,6 +26,7 @@ import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
 import { Route as AdminNaoClassificadosRouteImport } from './routes/admin.nao-classificados'
 import { Route as AdminMotoboysRouteImport } from './routes/admin.motoboys'
 import { Route as AdminHorariosRouteImport } from './routes/admin.horarios'
+import { Route as AdminExportarRouteImport } from './routes/admin.exportar'
 import { Route as AdminEntregasRouteImport } from './routes/admin.entregas'
 import { Route as AdminConfigRouteImport } from './routes/admin.config'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
@@ -119,6 +120,11 @@ const AdminHorariosRoute = AdminHorariosRouteImport.update({
   path: '/admin/horarios',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminExportarRoute = AdminExportarRouteImport.update({
+  id: '/admin/exportar',
+  path: '/admin/exportar',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminEntregasRoute = AdminEntregasRouteImport.update({
   id: '/admin/entregas',
   path: '/admin/entregas',
@@ -173,6 +179,7 @@ export interface FileRoutesByFullPath {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
+  '/admin/exportar': typeof AdminExportarRoute
   '/admin/horarios': typeof AdminHorariosRoute
   '/admin/motoboys': typeof AdminMotoboysRouteWithChildren
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
@@ -199,6 +206,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
+  '/admin/exportar': typeof AdminExportarRoute
   '/admin/horarios': typeof AdminHorariosRoute
   '/admin/motoboys': typeof AdminMotoboysRouteWithChildren
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
@@ -226,6 +234,7 @@ export interface FileRoutesById {
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
+  '/admin/exportar': typeof AdminExportarRoute
   '/admin/horarios': typeof AdminHorariosRoute
   '/admin/motoboys': typeof AdminMotoboysRouteWithChildren
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin/config'
     | '/admin/entregas'
+    | '/admin/exportar'
     | '/admin/horarios'
     | '/admin/motoboys'
     | '/admin/nao-classificados'
@@ -280,6 +290,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin/config'
     | '/admin/entregas'
+    | '/admin/exportar'
     | '/admin/horarios'
     | '/admin/motoboys'
     | '/admin/nao-classificados'
@@ -306,6 +317,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-protected-resource'
     | '/admin/config'
     | '/admin/entregas'
+    | '/admin/exportar'
     | '/admin/horarios'
     | '/admin/motoboys'
     | '/admin/nao-classificados'
@@ -333,6 +345,7 @@ export interface RootRouteChildren {
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AdminConfigRoute: typeof AdminConfigRoute
   AdminEntregasRoute: typeof AdminEntregasRoute
+  AdminExportarRoute: typeof AdminExportarRoute
   AdminHorariosRoute: typeof AdminHorariosRoute
   AdminMotoboysRoute: typeof AdminMotoboysRouteWithChildren
   AdminNaoClassificadosRoute: typeof AdminNaoClassificadosRoute
@@ -465,6 +478,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminHorariosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/exportar': {
+      id: '/admin/exportar'
+      path: '/admin/exportar'
+      fullPath: '/admin/exportar'
+      preLoaderRoute: typeof AdminExportarRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/entregas': {
       id: '/admin/entregas'
       path: '/admin/entregas'
@@ -545,6 +565,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AdminConfigRoute: AdminConfigRoute,
   AdminEntregasRoute: AdminEntregasRoute,
+  AdminExportarRoute: AdminExportarRoute,
   AdminHorariosRoute: AdminHorariosRoute,
   AdminMotoboysRoute: AdminMotoboysRouteWithChildren,
   AdminNaoClassificadosRoute: AdminNaoClassificadosRoute,

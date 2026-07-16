@@ -81,6 +81,7 @@ function MotoboyPage() {
         .select("*")
         .is("courier_id", null)
         .eq("status", "novo")
+        .eq("tipo_entrega", "entrega")
         .order("created_at", { ascending: true });
       if (error) throw error;
       return data as Order[];
@@ -144,12 +145,21 @@ function MotoboyPage() {
   // Realtime: pedidos novos entram na lista disponível
   useEffect(() => {
     if (!ready || !isCourier) return;
+    const cancelledSeen = new Set<string>();
     const ch = supabase
       .channel("orders-motoboy")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
-        () => {
+        (payload: any) => {
+          const row = payload?.new;
+          if (row && row.status === "cancelado" && row.courier_id === courierId && !cancelledSeen.has(row.id)) {
+            cancelledSeen.add(row.id);
+            toast.error(`Cliente cancelou o pedido #${row.numero}`, {
+              description: "Verifique antes de sair para entrega.",
+              duration: 15000,
+            });
+          }
           qc.invalidateQueries({ queryKey: ["motoboy", "available"] });
           qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
           qc.invalidateQueries({ queryKey: ["motoboy", "mes", courierId] });

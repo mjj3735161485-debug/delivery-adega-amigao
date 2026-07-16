@@ -21,6 +21,7 @@ type Order = {
   taxa_entrega: number;
   total: number;
   status: string;
+  tipo_entrega: string;
   created_at: string;
 };
 type Item = {
@@ -93,6 +94,19 @@ function AdminPedidos() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [ready, isAdmin, qc]);
+
+  // Auto-avanço dos pedidos de RETIRADA a cada minuto (5min por etapa)
+  useEffect(() => {
+    if (!ready || !isAdmin) return;
+    const tick = async () => {
+      try {
+        await supabase.rpc("auto_advance_pickup_orders", { _minutes: 5 });
+      } catch { /* noop */ }
+    };
+    void tick();
+    const iv = setInterval(tick, 60_000);
+    return () => clearInterval(iv);
+  }, [ready, isAdmin]);
 
   // Detectar novos pedidos
   useEffect(() => {
@@ -196,12 +210,26 @@ function AdminPedidos() {
                   <div className="flex items-center gap-2">
                     <h2 className="font-display text-xl">#{o.numero}</h2>
                     <StatusBadge s={o.status} />
+                    {o.tipo_entrega === "retirada" ? (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full border bg-emerald-500/15 text-emerald-300 border-emerald-500/40">
+                        🏪 Retirada
+                      </span>
+                    ) : (
+                      <span className="text-[10px] uppercase tracking-widest px-2 py-0.5 rounded-full border bg-primary/15 text-primary border-primary/40">
+                        🛵 Entrega
+                      </span>
+                    )}
                     <span className="text-xs text-muted-foreground">
                       {new Date(o.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
                     </span>
                   </div>
                   <p className="text-sm mt-1">{o.cliente_nome} · {formatPhoneBR(o.cliente_telefone)}</p>
                   <p className="text-xs text-muted-foreground">{o.endereco}</p>
+                  {o.tipo_entrega === "retirada" && (
+                    <p className="text-[11px] text-emerald-400 mt-0.5">
+                      Cliente vai retirar — avança automaticamente a cada 5 min.
+                    </p>
+                  )}
                 </div>
                 <div className="text-right">
                   <p className="font-display font-bold text-primary text-xl">{brl(Number(o.total))}</p>

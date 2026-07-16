@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, Bike, Bell, BellRing } from "lucide-react";
+import { CheckCircle2, Bike, Bell, BellRing, Store, XCircle, Clock, Package, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
@@ -72,10 +72,13 @@ function PedidoConfirmacao() {
         cliente_nome: string;
         endereco: string;
         total: number;
+        status: string;
+        tipo_entrega: string;
         itens: { id: string; nome_snapshot: string; preco_snapshot: number; quantidade: number }[];
       };
       return { order: o, itens: o.itens };
     },
+    refetchInterval: 15_000,
   });
 
   const { data: courier } = useQuery({
@@ -110,33 +113,89 @@ function PedidoConfirmacao() {
       .on("postgres_changes", { event: "*", schema: "public", table: "courier_presence" }, () =>
         qc.invalidateQueries({ queryKey: ["pedido-courier", numero, t] }))
       .on("postgres_changes", { event: "*", schema: "public", table: "orders" }, () =>
-        qc.invalidateQueries({ queryKey: ["pedido-courier", numero, t] }))
+        {
+          qc.invalidateQueries({ queryKey: ["pedido-courier", numero, t] });
+          qc.invalidateQueries({ queryKey: ["pedido", numero, t] });
+        })
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [numero, t, qc]);
 
   const mapKey = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
-  const showTracker = !!courier?.accepted_at && !courier?.delivered_at && courier?.nome;
+  const isPickup = data?.order.tipo_entrega === "retirada";
+  const status = data?.order.status ?? "novo";
+  const showTracker = !isPickup && !!courier?.accepted_at && !courier?.delivered_at && courier?.nome;
+  const [cancelling, setCancelling] = useState(false);
+
+  async function cancelar() {
+    if (!t) return;
+    if (!confirm("Cancelar este pedido? Isso não poderá ser desfeito.")) return;
+    setCancelling(true);
+    try {
+      const { error } = await supabase.rpc("cancel_order_by_customer", {
+        _numero: Number(numero),
+        _token: t,
+      });
+      if (error) throw error;
+      toast.success("Pedido cancelado.");
+      qc.invalidateQueries({ queryKey: ["pedido", numero, t] });
+    } catch (e: any) {
+      toast.error(e?.message || "Não foi possível cancelar.");
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="min-h-screen">
       <SiteHeader />
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <div className="mx-auto h-16 w-16 rounded-full bg-primary/15 flex items-center justify-center mb-4">
-          <CheckCircle2 className="h-8 w-8 text-primary" />
+          {status === "cancelado" ? (
+            <XCircle className="h-8 w-8 text-destructive" />
+          ) : isPickup ? (
+            <Store className="h-8 w-8 text-primary" />
+          ) : (
+            <CheckCircle2 className="h-8 w-8 text-primary" />
+          )}
         </div>
-        <h1 className="font-display text-3xl">Pedido enviado!</h1>
+        <h1 className="font-display text-3xl">
+          {status === "cancelado"
+            ? "Pedido cancelado"
+            : isPickup
+              ? "Pedido para retirada"
+              : "Pedido enviado!"}
+        </h1>
         <p className="text-muted-foreground mt-2">
           Nº <span className="font-mono text-foreground">#{numero}</span>
+          {isPickup && status !== "cancelado" && (
+            <span className="ml-2 inline-flex items-center gap-1 text-xs bg-primary/15 text-primary px-2 py-0.5 rounded-full">
+              <Store className="h-3 w-3" /> Retirada na loja
+            </span>
+          )}
         </p>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Confirmamos seu pedido no WhatsApp em instantes. Se a janela não abriu,
-          revise a mensagem enviada.
-        </p>
+
+        {status !== "cancelado" && (
+          <StatusStepper status={status} pickup={isPickup} />
+        )}
+
+        {status === "novo" && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            className="mt-4"
+            onClick={cancelar}
+            disabled={cancelling}
+          >
+            {cancelling ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <XCircle className="h-4 w-4 mr-1" />}
+            Cancelar pedido
+          </Button>
+        )}
 
         {courier?.delivered_at && (
           <div className="mt-6 rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-4 text-sm text-emerald-200">
-            <CheckCircle2 className="h-5 w-5 inline mr-1" /> Pedido entregue por <strong>{courier.nome}</strong>. Bom apetite!
+            <CheckCircle2 className="h-5 w-5 inline mr-1" /> Pedido entregue{courier.nome ? <> por <strong>{courier.nome}</strong></> : null}. Bom apetite!
           </div>
         )}
 
@@ -146,6 +205,18 @@ function PedidoConfirmacao() {
             courier={courier!}
             mapKey={mapKey}
           />
+        )}
+
+        {isPickup && status !== "cancelado" && status !== "entregue" && (
+          <div className="mt-6 rounded-xl border border-primary/40 bg-primary/5 p-4 text-sm text-left">
+            <p className="font-semibold mb-1 flex items-center gap-2">
+              <Package className="h-4 w-4 text-primary" /> Como funciona a retirada
+            </p>
+            <p className="text-muted-foreground text-xs">
+              Assim que o pedido estiver <b>pronto</b>, é só passar na loja para retirar.
+              Você acompanha aqui em tempo real.
+            </p>
+          </div>
         )}
 
         {isLoading ? (
@@ -173,6 +244,50 @@ function PedidoConfirmacao() {
           <Link to="/">Voltar ao catálogo</Link>
         </Button>
       </div>
+    </div>
+  );
+}
+
+function StatusStepper({ status, pickup }: { status: string; pickup: boolean }) {
+  const steps = pickup
+    ? [
+        { key: "novo", label: "Recebido" },
+        { key: "preparo", label: "Preparando" },
+        { key: "entrega", label: "Pronto" },
+        { key: "entregue", label: "Retirado" },
+      ]
+    : [
+        { key: "novo", label: "Recebido" },
+        { key: "preparo", label: "Preparando" },
+        { key: "entrega", label: "A caminho" },
+        { key: "entregue", label: "Entregue" },
+      ];
+  const idx = Math.max(0, steps.findIndex((s) => s.key === status));
+  return (
+    <div className="mt-6 flex items-center justify-between gap-1">
+      {steps.map((s, i) => {
+        const done = i <= idx;
+        const active = i === idx;
+        return (
+          <div key={s.key} className="flex-1 flex flex-col items-center">
+            <div
+              className={`h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold border-2 transition ${
+                done
+                  ? active
+                    ? "bg-primary text-primary-foreground border-primary shadow-[0_0_0_4px_rgba(245,158,11,0.25)]"
+                    : "bg-primary/70 text-primary-foreground border-primary/70"
+                  : "bg-muted text-muted-foreground border-border"
+              }`}
+            >
+              {done ? <CheckCircle2 className="h-4 w-4" /> : i + 1}
+            </div>
+            <p className={`mt-1 text-[10px] uppercase tracking-widest ${done ? "text-foreground" : "text-muted-foreground"}`}>
+              {s.label}
+            </p>
+            {active && <Clock className="h-3 w-3 text-primary mt-0.5 animate-pulse" />}
+          </div>
+        );
+      })}
     </div>
   );
 }
