@@ -34,6 +34,7 @@ type Courier = {
   comissao_percent: number;
   meta_entregas_mes: number;
   limite_comissao_mes: number;
+  diaria: number;
 };
 type Presence = { courier_id: string; online: boolean; updated_at: string };
 type DeliveredRow = { courier_id: string | null; taxa_entrega: number; delivered_at: string };
@@ -66,7 +67,7 @@ function AdminMotoboys() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("couriers")
-        .select("id, user_id, nome, telefone, ativo, comissao_percent, meta_entregas_mes, limite_comissao_mes")
+        .select("id, user_id, nome, telefone, ativo, comissao_percent, meta_entregas_mes, limite_comissao_mes, diaria")
         .order("nome");
       if (error) throw error;
       return data as Courier[];
@@ -148,7 +149,7 @@ function AdminMotoboys() {
     }
   }
 
-  async function salvarConfig(c: Courier, patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes">>) {
+  async function salvarConfig(c: Courier, patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes" | "diaria">>) {
     const { error } = await supabase.from("couriers").update(patch).eq("id", c.id);
     if (error) { toast.error(error.message); return; }
     toast.success(`Configuração de ${c.nome} salva`);
