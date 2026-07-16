@@ -443,9 +443,17 @@ export type Database = {
     Functions: {
       _norm_bairro: { Args: { _s: string }; Returns: string }
       accept_order: { Args: { _numero: number }; Returns: Json }
+      admin_list_users: {
+        Args: { _limit?: number; _search?: string }
+        Returns: Json
+      }
       admin_month_report: { Args: { _ref: string }; Returns: Json }
       admin_register_courier: {
         Args: { _nome: string; _telefone: string; _user_id: string }
+        Returns: Json
+      }
+      admin_set_role: {
+        Args: { _grant: boolean; _role: string; _user_id: string }
         Returns: Json
       }
       courier_month_summary: {
