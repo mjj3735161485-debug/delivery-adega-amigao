@@ -452,6 +452,10 @@ export type Database = {
         Args: { _nome: string; _telefone: string; _user_id: string }
         Returns: Json
       }
+      admin_set_courier_ativo: {
+        Args: { _ativo: boolean; _user_id: string }
+        Returns: Json
+      }
       admin_set_role: {
         Args: { _grant: boolean; _role: string; _user_id: string }
         Returns: Json
