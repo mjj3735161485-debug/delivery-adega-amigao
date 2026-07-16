@@ -1,23 +1,35 @@
 ## Objetivo
-Estender a página **Revisar categorias** para também identificar e realocar automaticamente produtos que estão na categoria errada entre **Copão** e **Combos**, usando os mesmos sliders de confiança já implementados.
+Nova aba **Horários** no painel admin para configurar quando o delivery aceita pedidos, com bloqueio automático do checkout fora do horário.
 
-## Como funciona
-- Novo toggle no topo da página: **"Incluir revisão Copão ↔ Combos"** (desligado por padrão).
-- Quando ligado, uma nova query carrega os produtos que estão hoje em Copão + Combos e roda o mesmo `scoreProduct()` contra **as duas categorias**, ignorando a atual do produto.
-- Se o score da categoria oposta for maior que a atual **e** passar o limiar "Mostrar sugestões", o item aparece numa lista separada com badge indicando `atual → sugerida`.
-- Os mesmos botões funcionam:
-  - **Aceitar** individual move o produto.
-  - **Auto-classificar N** e **Aceitar visíveis** consideram esses itens junto com os do fallback, respeitando os mesmos sliders.
-  - **Ignorar** oculta o item da sessão.
+## Mudanças
 
-## Mudanças técnicas
-- `src/lib/classify-score.ts`: pequeno ajuste — permitir passar apenas um subconjunto de categorias-alvo (já suportado; nova função helper `scoreAgainst(names, targets, samples)` para deixar explícito).
-- `src/routes/admin.nao-classificados.tsx`:
-  - Nova query `["admin","products","copao-combos"]` buscando os produtos das duas categorias.
-  - `useMemo` `scored` combina fallback + revisão, marcando cada item com `origem: "fallback" | "review"` para o header do item mostrar a categoria atual quando for revisão.
-  - Header dos cards de revisão mostra: `[Copão] → [Combos] · 82%`.
-  - Toggle salvo em `localStorage` junto com os sliders.
+### 1. Banco
+- Nova tabela `business_hours` com uma linha por dia (0=Domingo … 6=Sábado):
+  - `weekday` (int, PK), `aberto` (bool), `abre` (time), `fecha` (time).
+- Seed inicial: todos os dias 18:00–23:59 abertos.
+- Nova função SQL `is_store_open()` (SECURITY DEFINER, STABLE) que retorna `{aberto, proximo_abertura}` considerando o fuso `America/Sao_Paulo` e horários que passam da meia-noite.
+- Bloqueio server-side: `place_order` chama `is_store_open()` e lança erro `Loja fechada no momento` se estiver fora do horário — impede finalização mesmo se o cliente tentar burlar o frontend.
 
-## Fora de escopo
-- Não altera outras categorias (Cerveja, Vinhos, etc.). Se o dono quiser estender depois, o mesmo padrão se reaplica.
-- Nenhuma mudança no banco.
+### 2. Admin — nova aba `/admin/horarios`
+- Adicionada ao menu de navegação admin (junto de Pedidos, Produtos, Entregas, Motoboys, etc).
+- Tabela com uma linha por dia da semana:
+  - Switch **Aberto/Fechado**
+  - Dois campos `<input type="time">` para abertura e fechamento
+- Botão "Salvar" faz upsert em `business_hours`.
+- Card de status no topo mostrando "Aberto agora" / "Fechado — abre {dia} às {hora}".
+
+### 3. Frontend do cliente
+- Hook `useStoreOpen()` que consulta `is_store_open()` (cache 60s via TanStack Query).
+- Cabeçalho (`src/routes/__root.tsx` ou `index.tsx`): badge "Aberto" (verde) / "Fechado" (âmbar com próximo horário).
+- Checkout (`src/routes/checkout.tsx`): quando `aberto=false`, botão "Finalizar pedido" fica desabilitado com aviso "Estamos fechados. Abrimos {dia} às {hora}." O carrinho permanece salvo.
+- Página inicial: banner discreto no topo quando fechada.
+
+## Fora do escopo
+- Feriados e datas específicas (só dia da semana).
+- Múltiplos turnos por dia (só um intervalo por dia).
+- Agendamento de pedido para depois.
+
+## Detalhes técnicos
+- `business_hours` com RLS: SELECT liberado para `anon`+`authenticated` (dado público); INSERT/UPDATE só para role `admin` via `has_role`.
+- `is_store_open()` retorna jsonb `{ aberto, proximo }` para o frontend renderizar mensagem contextual; usa `now() AT TIME ZONE 'America/Sao_Paulo'`.
+- Horário que atravessa meia-noite (ex.: 18:00–02:00) tratado com `fecha < abre → fecha += 1 dia`.
