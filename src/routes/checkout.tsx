@@ -5,7 +5,7 @@ import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, RefreshCw, Store,
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
-import { brl, formatPhoneBR, onlyDigits } from "@/lib/format";
+import { brl, formatPhoneBR, onlyDigits, withCountryCode } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
