@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as PedidosRouteImport } from './routes/pedidos'
 import { Route as MotoboyRouteImport } from './routes/motoboy'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
 import { Route as McpRouteImport } from './routes/mcp'
@@ -34,6 +35,11 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PedidosRoute = PedidosRouteImport.update({
+  id: '/pedidos',
+  path: '/pedidos',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MotoboyRoute = MotoboyRouteImport.update({
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/mcp': typeof McpRoute
   '/minha-conta': typeof MinhaContaRoute
   '/motoboy': typeof MotoboyRoute
+  '/pedidos': typeof PedidosRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/mcp': typeof McpRoute
   '/minha-conta': typeof MinhaContaRoute
   '/motoboy': typeof MotoboyRoute
+  '/pedidos': typeof PedidosRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -195,6 +203,7 @@ export interface FileRoutesById {
   '/mcp': typeof McpRoute
   '/minha-conta': typeof MinhaContaRoute
   '/motoboy': typeof MotoboyRoute
+  '/pedidos': typeof PedidosRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -220,6 +229,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/minha-conta'
     | '/motoboy'
+    | '/pedidos'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/minha-conta'
     | '/motoboy'
+    | '/pedidos'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -266,6 +277,7 @@ export interface FileRouteTypes {
     | '/mcp'
     | '/minha-conta'
     | '/motoboy'
+    | '/pedidos'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -290,6 +302,7 @@ export interface RootRouteChildren {
   McpRoute: typeof McpRoute
   MinhaContaRoute: typeof MinhaContaRoute
   MotoboyRoute: typeof MotoboyRoute
+  PedidosRoute: typeof PedidosRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -313,6 +326,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pedidos': {
+      id: '/pedidos'
+      path: '/pedidos'
+      fullPath: '/pedidos'
+      preLoaderRoute: typeof PedidosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/motoboy': {
@@ -466,6 +486,7 @@ const rootRouteChildren: RootRouteChildren = {
   McpRoute: McpRoute,
   MinhaContaRoute: MinhaContaRoute,
   MotoboyRoute: MotoboyRoute,
+  PedidosRoute: PedidosRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
