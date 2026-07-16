@@ -29,6 +29,7 @@ const baseSchema = z.object({
   pagamento: z.enum(["Dinheiro", "Pix", "Cartão", "Misto"]),
   troco_para: z.string().optional(),
   valor_cartao: z.string().optional(),
+  metodo_misto: z.enum(["Cartão", "Pix"]).optional(),
   observacoes: z.string().max(300).optional(),
 });
 const deliverySchema = baseSchema.extend({
@@ -74,6 +75,7 @@ function Checkout() {
     pagamento: "Pix" as "Dinheiro" | "Pix" | "Cartão" | "Misto",
     troco_para: "",
     valor_cartao: "",
+    metodo_misto: "Cartão" as "Cartão" | "Pix",
     observacoes: "",
     tipo_entrega: "entrega" as "entrega" | "retirada",
   });
@@ -380,6 +382,7 @@ function Checkout() {
       // Helpers para pagamento
       const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
       const pag = parsed.data.pagamento;
+      const mistoMetodo = parsed.data.metodo_misto || "Cartão";
       const valorCartao = pag === "Misto" ? parseMoney(parsed.data.valor_cartao || "") : 0;
       const valorDinheiro = pag === "Misto" ? Math.max(0, Number(total) - valorCartao) : (pag === "Dinheiro" ? Number(total) : 0);
       if (pag === "Misto") {
@@ -397,7 +400,8 @@ function Checkout() {
       // Detalhe do pagamento salvo no início das observações para admin/motoboy verem no cupom
       let pagObsPrefix = "";
       if (pag === "Misto") {
-        pagObsPrefix = `💳 Cartão: ${brl(valorCartao)} + 💵 Dinheiro: ${brl(valorDinheiro)}`;
+        const icone = mistoMetodo === "Pix" ? "🅿️" : "💳";
+        pagObsPrefix = `${icone} ${mistoMetodo}: ${brl(valorCartao)} + 💵 Dinheiro: ${brl(valorDinheiro)}`;
         if (trocoPara > 0) pagObsPrefix += ` (troco p/ ${brl(trocoPara)} = ${brl(troco)})`;
       } else if (pag === "Dinheiro" && trocoPara > 0) {
         pagObsPrefix = `💵 Troco para ${brl(trocoPara)} = ${brl(troco)}`;
@@ -414,6 +418,7 @@ function Checkout() {
           bairro_id: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).bairro_id,
           endereco: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).endereco,
           pagamento: pag,
+        metodo_misto: pag === "Misto" ? mistoMetodo : "",
           troco_para: trocoPara > 0 ? String(trocoPara) : "",
           observacoes: obsFinal,
           subtotal: String(subtotal),
@@ -449,7 +454,7 @@ function Checkout() {
           : `📍 ${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro}`,
         ...(pag === "Misto"
           ? [
-              `💳 Cartão: ${brl(valorCartao)}`,
+              `${mistoMetodo === "Pix" ? "🅿️" : "💳"} ${mistoMetodo}: ${brl(valorCartao)}`,
               `💵 Dinheiro: ${brl(valorDinheiro)}${trocoPara > 0 ? ` (troco p/ ${brl(trocoPara)} = *${brl(troco)}*)` : ""}`,
             ]
           : [
