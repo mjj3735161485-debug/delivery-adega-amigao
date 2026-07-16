@@ -466,6 +466,10 @@ export type Database = {
       is_store_open: { Args: never; Returns: Json }
       mark_delivered: { Args: { _numero: number }; Returns: Json }
       place_order: { Args: { _items: Json; _order: Json }; Returns: Json }
+      self_register_staff: {
+        Args: { _nome: string; _role: string; _telefone: string }
+        Returns: Json
+      }
       update_courier_presence: {
         Args: { _lat: number; _lng: number; _online: boolean }
         Returns: Json
