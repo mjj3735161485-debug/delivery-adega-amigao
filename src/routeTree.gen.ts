@@ -20,6 +20,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidoNumeroRouteImport } from './routes/pedido.$numero'
 import { Route as AdminProdutosRouteImport } from './routes/admin.produtos'
 import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
+import { Route as AdminNaoClassificadosRouteImport } from './routes/admin.nao-classificados'
 import { Route as AdminMotoboysRouteImport } from './routes/admin.motoboys'
 import { Route as AdminEntregasRouteImport } from './routes/admin.entregas'
 import { Route as AdminConfigRouteImport } from './routes/admin.config'
@@ -83,6 +84,11 @@ const AdminPedidosRoute = AdminPedidosRouteImport.update({
   path: '/admin/pedidos',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminNaoClassificadosRoute = AdminNaoClassificadosRouteImport.update({
+  id: '/admin/nao-classificados',
+  path: '/admin/nao-classificados',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminMotoboysRoute = AdminMotoboysRouteImport.update({
   id: '/admin/motoboys',
   path: '/admin/motoboys',
@@ -136,6 +142,7 @@ export interface FileRoutesByFullPath {
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
   '/admin/motoboys': typeof AdminMotoboysRoute
+  '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
   '/admin/motoboys': typeof AdminMotoboysRoute
+  '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
@@ -177,6 +185,7 @@ export interface FileRoutesById {
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
   '/admin/motoboys': typeof AdminMotoboysRoute
+  '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/admin/config'
     | '/admin/entregas'
     | '/admin/motoboys'
+    | '/admin/nao-classificados'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/pedido/$numero'
@@ -219,6 +229,7 @@ export interface FileRouteTypes {
     | '/admin/config'
     | '/admin/entregas'
     | '/admin/motoboys'
+    | '/admin/nao-classificados'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/pedido/$numero'
@@ -239,6 +250,7 @@ export interface FileRouteTypes {
     | '/admin/config'
     | '/admin/entregas'
     | '/admin/motoboys'
+    | '/admin/nao-classificados'
     | '/admin/pedidos'
     | '/admin/produtos'
     | '/pedido/$numero'
@@ -260,6 +272,7 @@ export interface RootRouteChildren {
   AdminConfigRoute: typeof AdminConfigRoute
   AdminEntregasRoute: typeof AdminEntregasRoute
   AdminMotoboysRoute: typeof AdminMotoboysRoute
+  AdminNaoClassificadosRoute: typeof AdminNaoClassificadosRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminProdutosRoute: typeof AdminProdutosRoute
   PedidoNumeroRoute: typeof PedidoNumeroRoute
@@ -346,6 +359,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminPedidosRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/nao-classificados': {
+      id: '/admin/nao-classificados'
+      path: '/admin/nao-classificados'
+      fullPath: '/admin/nao-classificados'
+      preLoaderRoute: typeof AdminNaoClassificadosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/motoboys': {
       id: '/admin/motoboys'
       path: '/admin/motoboys'
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminConfigRoute: AdminConfigRoute,
   AdminEntregasRoute: AdminEntregasRoute,
   AdminMotoboysRoute: AdminMotoboysRoute,
+  AdminNaoClassificadosRoute: AdminNaoClassificadosRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminProdutosRoute: AdminProdutosRoute,
   PedidoNumeroRoute: PedidoNumeroRoute,
