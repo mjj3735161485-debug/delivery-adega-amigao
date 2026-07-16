@@ -26,8 +26,9 @@ import { CheckoutLocationMap } from "@/components/CheckoutLocationMap";
 const baseSchema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
   cliente_telefone: z.string().trim().refine((v) => onlyDigits(v).length >= 10, "Telefone inválido"),
-  pagamento: z.enum(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"]),
+  pagamento: z.enum(["Dinheiro", "Pix", "Cartão", "Misto"]),
   troco_para: z.string().optional(),
+  valor_cartao: z.string().optional(),
   observacoes: z.string().max(300).optional(),
 });
 const deliverySchema = baseSchema.extend({
@@ -70,8 +71,9 @@ function Checkout() {
     cliente_telefone: "",
     bairro_id: "",
     endereco: "",
-    pagamento: "Pix" as "Dinheiro" | "Pix" | "Cartão débito" | "Cartão crédito",
+    pagamento: "Pix" as "Dinheiro" | "Pix" | "Cartão" | "Misto",
     troco_para: "",
+    valor_cartao: "",
     observacoes: "",
     tipo_entrega: "entrega" as "entrega" | "retirada",
   });
@@ -375,6 +377,33 @@ function Checkout() {
     }
     setSubmitting(true);
     try {
+      // Helpers para pagamento
+      const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
+      const pag = parsed.data.pagamento;
+      const valorCartao = pag === "Misto" ? parseMoney(parsed.data.valor_cartao || "") : 0;
+      const valorDinheiro = pag === "Misto" ? Math.max(0, Number(total) - valorCartao) : (pag === "Dinheiro" ? Number(total) : 0);
+      if (pag === "Misto") {
+        if (!(valorCartao > 0) || valorCartao >= Number(total)) {
+          toast.error("Informe um valor no cartão menor que o total.");
+          setSubmitting(false);
+          return;
+        }
+      }
+      const trocoPara = (pag === "Dinheiro" || (pag === "Misto" && valorDinheiro > 0)) && parsed.data.troco_para
+        ? parseMoney(parsed.data.troco_para)
+        : 0;
+      const troco = trocoPara > 0 ? Math.max(0, trocoPara - valorDinheiro) : 0;
+
+      // Detalhe do pagamento salvo no início das observações para admin/motoboy verem no cupom
+      let pagObsPrefix = "";
+      if (pag === "Misto") {
+        pagObsPrefix = `💳 Cartão: ${brl(valorCartao)} + 💵 Dinheiro: ${brl(valorDinheiro)}`;
+        if (trocoPara > 0) pagObsPrefix += ` (troco p/ ${brl(trocoPara)} = ${brl(troco)})`;
+      } else if (pag === "Dinheiro" && trocoPara > 0) {
+        pagObsPrefix = `💵 Troco para ${brl(trocoPara)} = ${brl(troco)}`;
+      }
+      const obsFinal = [pagObsPrefix, parsed.data.observacoes || ""].filter(Boolean).join(" · ");
+
       const destino_lat = isPickup ? "" : String(pinPos!.lat);
       const destino_lng = isPickup ? "" : String(pinPos!.lng);
       const { data: rpcData, error } = await supabase.rpc("place_order", {
@@ -384,12 +413,9 @@ function Checkout() {
           tipo_entrega: parsed.data.tipo_entrega,
           bairro_id: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).bairro_id,
           endereco: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).endereco,
-          pagamento: parsed.data.pagamento,
-          troco_para:
-            parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
-              ? String(Number(parsed.data.troco_para.replace(",", ".")))
-              : "",
-          observacoes: parsed.data.observacoes || "",
+          pagamento: pag,
+          troco_para: trocoPara > 0 ? String(trocoPara) : "",
+          observacoes: obsFinal,
           subtotal: String(subtotal),
           taxa_entrega: String(taxa),
           total: String(total),
@@ -421,11 +447,18 @@ function Checkout() {
         isPickup
           ? `🏪 Retirar na loja`
           : `📍 ${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro}`,
-        `💳 ${parsed.data.pagamento}${
-          parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
-            ? ` (troco para ${brl(Number(parsed.data.troco_para.replace(",", ".")))})`
-            : ""
-        }`,
+        ...(pag === "Misto"
+          ? [
+              `💳 Cartão: ${brl(valorCartao)}`,
+              `💵 Dinheiro: ${brl(valorDinheiro)}${trocoPara > 0 ? ` (troco p/ ${brl(trocoPara)} = *${brl(troco)}*)` : ""}`,
+            ]
+          : [
+              `💳 ${pag}${
+                pag === "Dinheiro" && trocoPara > 0
+                  ? ` — troco p/ ${brl(trocoPara)} = *${brl(troco)}*`
+                  : ""
+              }`,
+            ]),
         ...(parsed.data.observacoes ? [`📝 ${parsed.data.observacoes}`] : []),
       ];
       const wa = `https://wa.me/${settings?.whatsapp ?? ""}?text=${encodeURIComponent(linhas.join("\n"))}`;
@@ -696,21 +729,73 @@ function Checkout() {
                 onValueChange={(v) => setForm({ ...form, pagamento: v as typeof form.pagamento })}
                 className="grid grid-cols-2 gap-2 mt-2"
               >
-                {(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"] as const).map((p) => (
+                {(["Dinheiro", "Pix", "Cartão", "Misto"] as const).map((p) => (
                   <Label key={p} className="flex items-center gap-2 border border-border rounded-md p-3 cursor-pointer hover:border-primary/50">
-                    <RadioGroupItem value={p} /> {p}
+                    <RadioGroupItem value={p} />
+                    <div className="flex flex-col">
+                      <span>{p}</span>
+                      {p === "Cartão" && (
+                        <span className="text-[10px] text-muted-foreground">Débito ou crédito</span>
+                      )}
+                      {p === "Misto" && (
+                        <span className="text-[10px] text-muted-foreground">Cartão + dinheiro</span>
+                      )}
+                    </div>
                   </Label>
                 ))}
               </RadioGroup>
             </div>
-            {form.pagamento === "Dinheiro" && (
+            {form.pagamento === "Misto" && (() => {
+              const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
+              const vCartao = parseMoney(form.valor_cartao);
+              const vDinheiro = Math.max(0, Number(total) - (isNaN(vCartao) ? 0 : vCartao));
+              const vTrocoPara = parseMoney(form.troco_para);
+              const vTroco = vTrocoPara > 0 ? Math.max(0, vTrocoPara - vDinheiro) : 0;
+              return (
+                <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
+                  <div>
+                    <Label htmlFor="vcartao">Valor no cartão *</Label>
+                    <Input id="vcartao" inputMode="decimal" placeholder="Ex: 130"
+                      value={form.valor_cartao}
+                      onChange={(e) => setForm({ ...form, valor_cartao: e.target.value })} />
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    Total do pedido: <b className="text-foreground">{brl(total)}</b> · Restante em dinheiro: <b className="text-emerald-400">{brl(vDinheiro)}</b>
+                  </div>
+                  {vDinheiro > 0 && (
+                    <div>
+                      <Label htmlFor="troco">Troco para (opcional)</Label>
+                      <Input id="troco" inputMode="decimal" placeholder={`Ex: ${Math.ceil(vDinheiro / 10) * 10}`}
+                        value={form.troco_para}
+                        onChange={(e) => setForm({ ...form, troco_para: e.target.value })} />
+                      {vTrocoPara > 0 && vTrocoPara >= vDinheiro && (
+                        <p className="mt-1 text-xs text-emerald-400">
+                          Troco automático: <b>{brl(vTroco)}</b>
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+            {form.pagamento === "Dinheiro" && (() => {
+              const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
+              const vTrocoPara = parseMoney(form.troco_para);
+              const vTroco = vTrocoPara > 0 ? Math.max(0, vTrocoPara - Number(total)) : 0;
+              return (
               <div>
                 <Label htmlFor="troco">Troco para (opcional)</Label>
                 <Input id="troco" inputMode="decimal" placeholder="Ex: 100"
                   value={form.troco_para}
                   onChange={(e) => setForm({ ...form, troco_para: e.target.value })} />
+                  {vTrocoPara > 0 && vTrocoPara >= Number(total) && (
+                    <p className="mt-1 text-xs text-emerald-400">
+                      Troco automático: <b>{brl(vTroco)}</b>
+                    </p>
+                  )}
               </div>
-            )}
+              );
+            })()}
             <div>
               <Label htmlFor="obs">Observações</Label>
               <Textarea id="obs" rows={2} value={form.observacoes}
