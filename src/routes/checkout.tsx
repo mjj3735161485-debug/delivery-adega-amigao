@@ -71,8 +71,9 @@ function Checkout() {
     cliente_telefone: "",
     bairro_id: "",
     endereco: "",
-    pagamento: "Pix" as "Dinheiro" | "Pix" | "Cartão débito" | "Cartão crédito",
+    pagamento: "Pix" as "Dinheiro" | "Pix" | "Cartão" | "Misto",
     troco_para: "",
+    valor_cartao: "",
     observacoes: "",
     tipo_entrega: "entrega" as "entrega" | "retirada",
   });
