@@ -1,35 +1,35 @@
-## Objetivo
-Nova aba **Horários** no painel admin para configurar quando o delivery aceita pedidos, com bloqueio automático do checkout fora do horário.
+## Melhorias em `/admin/entregas`
 
-## Mudanças
+Manter a página existente e adicionar busca + edição rápida em massa.
 
-### 1. Banco
-- Nova tabela `business_hours` com uma linha por dia (0=Domingo … 6=Sábado):
-  - `weekday` (int, PK), `aberto` (bool), `abre` (time), `fecha` (time).
-- Seed inicial: todos os dias 18:00–23:59 abertos.
-- Nova função SQL `is_store_open()` (SECURITY DEFINER, STABLE) que retorna `{aberto, proximo_abertura}` considerando o fuso `America/Sao_Paulo` e horários que passam da meia-noite.
-- Bloqueio server-side: `place_order` chama `is_store_open()` e lança erro `Loja fechada no momento` se estiver fora do horário — impede finalização mesmo se o cliente tentar burlar o frontend.
+### Novos recursos
 
-### 2. Admin — nova aba `/admin/horarios`
-- Adicionada ao menu de navegação admin (junto de Pedidos, Produtos, Entregas, Motoboys, etc).
-- Tabela com uma linha por dia da semana:
-  - Switch **Aberto/Fechado**
-  - Dois campos `<input type="time">` para abertura e fechamento
-- Botão "Salvar" faz upsert em `business_hours`.
-- Card de status no topo mostrando "Aberto agora" / "Fechado — abre {dia} às {hora}".
+1. **Busca no topo**
+   - Campo de texto que filtra a lista em tempo real por nome (normalizado, ignora acento/caixa).
+   - Contador "X de Y bairros" ao lado.
 
-### 3. Frontend do cliente
-- Hook `useStoreOpen()` que consulta `is_store_open()` (cache 60s via TanStack Query).
-- Cabeçalho (`src/routes/__root.tsx` ou `index.tsx`): badge "Aberto" (verde) / "Fechado" (âmbar com próximo horário).
-- Checkout (`src/routes/checkout.tsx`): quando `aberto=false`, botão "Finalizar pedido" fica desabilitado com aviso "Estamos fechados. Abrimos {dia} às {hora}." O carrinho permanece salvo.
-- Página inicial: banner discreto no topo quando fechada.
+2. **Edição inline com auto-save**
+   - Nome e taxa editáveis direto na linha.
+   - Salva automaticamente ao sair do campo (`onBlur`) ou pressionar Enter.
+   - Indicador visual de "salvando…" e "salvo" por linha; erro volta ao valor anterior com toast.
 
-## Fora do escopo
-- Feriados e datas específicas (só dia da semana).
-- Múltiplos turnos por dia (só um intervalo por dia).
-- Agendamento de pedido para depois.
+3. **Seleção múltipla + ações em lote**
+   - Checkbox por linha e um "selecionar todos os visíveis" no cabeçalho.
+   - Barra de ações fixa no topo quando há seleção:
+     - **Ativar** / **Desativar** selecionados.
+     - **Ajustar taxa dos selecionados**: modal com dois modos — definir valor fixo (R$) ou ajustar em % (ex.: +10%, −5%), com preview do impacto em cada bairro antes de confirmar.
+     - **Remover selecionados** (confirmação).
+   - Todas as ações usam operações em batch no banco (uma requisição por ação, não uma por linha).
 
-## Detalhes técnicos
-- `business_hours` com RLS: SELECT liberado para `anon`+`authenticated` (dado público); INSERT/UPDATE só para role `admin` via `has_role`.
-- `is_store_open()` retorna jsonb `{ aberto, proximo }` para o frontend renderizar mensagem contextual; usa `now() AT TIME ZONE 'America/Sao_Paulo'`.
-- Horário que atravessa meia-noite (ex.: 18:00–02:00) tratado com `fecha < abre → fecha += 1 dia`.
+4. **Ordenação**
+   - Cabeçalhos clicáveis para ordenar por nome, taxa e status.
+
+### Arquivos afetados
+
+- `src/routes/admin.entregas.tsx` — refatorar a UI (busca, checkboxes, edição inline, barra de ações, modal de ajuste em lote).
+- Sem migrações: usa a tabela `delivery_areas` existente e as políticas RLS de admin já configuradas.
+
+### Fora do escopo
+
+- Zonas agrupando bairros (usuário optou por não refazer).
+- Import/export CSV.
