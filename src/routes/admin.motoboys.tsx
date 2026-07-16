@@ -150,7 +150,7 @@ function AdminMotoboys() {
 
   async function salvarConfig(c: Courier, patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes">>) {
     const { error } = await supabase.from("couriers").update(patch).eq("id", c.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     toast.success(`Configuração de ${c.nome} salva`);
     qc.invalidateQueries({ queryKey: ["admin", "couriers"] });
   }
