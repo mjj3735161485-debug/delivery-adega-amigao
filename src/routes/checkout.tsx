@@ -25,6 +25,7 @@ import {
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { reverseGeocode } from "@/lib/geocode.functions";
+import { forwardGeocode } from "@/lib/route.functions";
 
 const schema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
@@ -57,6 +58,7 @@ function Checkout() {
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
   const geocode = useServerFn(reverseGeocode);
+  const geocodeForward = useServerFn(forwardGeocode);
   const [form, setForm] = useState({
     cliente_nome: "",
     cliente_telefone: "",
@@ -210,6 +212,20 @@ function Checkout() {
     }
     setSubmitting(true);
     try {
+      // Tenta geocodificar o endereço para habilitar o rastreio no mapa
+      let destino_lat: string = "";
+      let destino_lng: string = "";
+      try {
+        const g = await geocodeForward({
+          data: { endereco: `${parsed.data.endereco}, ${bairroSel?.bairro ?? ""}, São José dos Campos, SP, Brasil` },
+        });
+        if (g.ok) {
+          destino_lat = String(g.lat);
+          destino_lng = String(g.lng);
+        }
+      } catch (e) {
+        console.warn("geocode destino falhou", e);
+      }
       const { data: rpcData, error } = await supabase.rpc("place_order", {
         _order: {
           cliente_nome: parsed.data.cliente_nome,
@@ -225,6 +241,8 @@ function Checkout() {
           subtotal: String(subtotal),
           taxa_entrega: String(taxa),
           total: String(total),
+          destino_lat,
+          destino_lng,
         },
         _items: items.map((it) => ({
           product_id: it.id,
