@@ -377,6 +377,33 @@ function Checkout() {
     }
     setSubmitting(true);
     try {
+      // Helpers para pagamento
+      const parseMoney = (s: string) => Number((s || "0").replace(/\./g, "").replace(",", "."));
+      const pag = parsed.data.pagamento;
+      const valorCartao = pag === "Misto" ? parseMoney(parsed.data.valor_cartao || "") : 0;
+      const valorDinheiro = pag === "Misto" ? Math.max(0, Number(total) - valorCartao) : (pag === "Dinheiro" ? Number(total) : 0);
+      if (pag === "Misto") {
+        if (!(valorCartao > 0) || valorCartao >= Number(total)) {
+          toast.error("Informe um valor no cartão menor que o total.");
+          setSubmitting(false);
+          return;
+        }
+      }
+      const trocoPara = (pag === "Dinheiro" || (pag === "Misto" && valorDinheiro > 0)) && parsed.data.troco_para
+        ? parseMoney(parsed.data.troco_para)
+        : 0;
+      const troco = trocoPara > 0 ? Math.max(0, trocoPara - valorDinheiro) : 0;
+
+      // Detalhe do pagamento salvo no início das observações para admin/motoboy verem no cupom
+      let pagObsPrefix = "";
+      if (pag === "Misto") {
+        pagObsPrefix = `💳 Cartão: ${brl(valorCartao)} + 💵 Dinheiro: ${brl(valorDinheiro)}`;
+        if (trocoPara > 0) pagObsPrefix += ` (troco p/ ${brl(trocoPara)} = ${brl(troco)})`;
+      } else if (pag === "Dinheiro" && trocoPara > 0) {
+        pagObsPrefix = `💵 Troco para ${brl(trocoPara)} = ${brl(troco)}`;
+      }
+      const obsFinal = [pagObsPrefix, parsed.data.observacoes || ""].filter(Boolean).join(" · ");
+
       const destino_lat = isPickup ? "" : String(pinPos!.lat);
       const destino_lng = isPickup ? "" : String(pinPos!.lng);
       const { data: rpcData, error } = await supabase.rpc("place_order", {
@@ -386,12 +413,9 @@ function Checkout() {
           tipo_entrega: parsed.data.tipo_entrega,
           bairro_id: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).bairro_id,
           endereco: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).endereco,
-          pagamento: parsed.data.pagamento,
-          troco_para:
-            parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
-              ? String(Number(parsed.data.troco_para.replace(",", ".")))
-              : "",
-          observacoes: parsed.data.observacoes || "",
+          pagamento: pag,
+          troco_para: trocoPara > 0 ? String(trocoPara) : "",
+          observacoes: obsFinal,
           subtotal: String(subtotal),
           taxa_entrega: String(taxa),
           total: String(total),
@@ -423,11 +447,18 @@ function Checkout() {
         isPickup
           ? `🏪 Retirar na loja`
           : `📍 ${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro}`,
-        `💳 ${parsed.data.pagamento}${
-          parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
-            ? ` (troco para ${brl(Number(parsed.data.troco_para.replace(",", ".")))})`
-            : ""
-        }`,
+        ...(pag === "Misto"
+          ? [
+              `💳 Cartão: ${brl(valorCartao)}`,
+              `💵 Dinheiro: ${brl(valorDinheiro)}${trocoPara > 0 ? ` (troco p/ ${brl(trocoPara)} = *${brl(troco)}*)` : ""}`,
+            ]
+          : [
+              `💳 ${pag}${
+                pag === "Dinheiro" && trocoPara > 0
+                  ? ` — troco p/ ${brl(trocoPara)} = *${brl(troco)}*`
+                  : ""
+              }`,
+            ]),
         ...(parsed.data.observacoes ? [`📝 ${parsed.data.observacoes}`] : []),
       ];
       const wa = `https://wa.me/${settings?.whatsapp ?? ""}?text=${encodeURIComponent(linhas.join("\n"))}`;
