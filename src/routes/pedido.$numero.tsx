@@ -23,8 +23,8 @@ function haversine(a: { lat: number; lng: number }, b: { lat: number; lng: numbe
 }
 
 // Carrega Google Maps JS uma única vez
-let gmapsPromise: Promise<typeof google> | null = null;
-function loadGoogleMaps(key: string): Promise<typeof google> {
+let gmapsPromise: Promise<any> | null = null;
+function loadGoogleMaps(key: string): Promise<any> {
   if (typeof window === "undefined") return Promise.reject("no window");
   if ((window as any).google?.maps) return Promise.resolve((window as any).google);
   if (gmapsPromise) return gmapsPromise;
