@@ -51,17 +51,25 @@ type MonthSummary = {
   por_bairro: { bairro: string; entregas: number; total: number; taxa_media: number }[];
 };
 
-function withinShift(): boolean {
-  const h = new Date().getHours();
-  return h >= 19 || h === 0; // 19h-23h ou 00h (meia-noite)
-}
-
 function MotoboyPage() {
   const { ready, isCourier, courierId, nome } = useCourierGuard();
   const qc = useQueryClient();
   const [gpsStatus, setGpsStatus] = useState<"idle" | "on" | "denied" | "unavailable">("idle");
   const watchRef = useRef<number | null>(null);
   const posRef = useRef<{ lat: number; lng: number } | null>(null);
+
+  // Horário de funcionamento (vem do admin em /admin/horarios)
+  const { data: storeStatus } = useQuery({
+    queryKey: ["store-open"],
+    enabled: ready && isCourier,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("is_store_open");
+      if (error) throw error;
+      return data as { aberto: boolean; proximo: string | null };
+    },
+  });
+  const inShift = !!storeStatus?.aberto;
 
   const { data: available = [] } = useQuery({
     queryKey: ["motoboy", "available"],
@@ -155,7 +163,7 @@ function MotoboyPage() {
   // GPS + presença
   useEffect(() => {
     if (!ready || !isCourier || !courierId) return;
-    if (!withinShift()) return;
+    if (!inShift) return;
     if (!navigator.geolocation) {
       setGpsStatus("unavailable");
       return;
@@ -200,7 +208,7 @@ function MotoboyPage() {
         } catch { /* noop */ }
       })();
     };
-  }, [ready, isCourier, courierId]);
+  }, [ready, isCourier, courierId, inShift]);
 
   async function aceitar(o: Order) {
     const { error } = await supabase.rpc("accept_order", { _numero: o.numero });
@@ -238,7 +246,6 @@ function MotoboyPage() {
     );
   }
 
-  const inShift = withinShift();
   const hojeEntregues = mine.filter((o) => o.delivered_at && new Date(o.delivered_at).toDateString() === new Date().toDateString());
   const totalHoje = hojeEntregues.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const emCurso = mine.filter((o) => !o.delivered_at);
