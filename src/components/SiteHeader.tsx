@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Wine, User, ListOrdered } from "lucide-react";
+import { Wine, User, ListOrdered, Settings } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CartSheet } from "./CartSheet";
@@ -8,11 +8,26 @@ import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
 
 export function SiteHeader() {
   const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const storeOpen = useStoreOpen();
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
+    async function check(uid: string | undefined) {
+      if (!uid) { setIsAdmin(false); return; }
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", uid)
+        .eq("role", "admin")
+        .maybeSingle();
+      setIsAdmin(!!data);
+    }
+    supabase.auth.getSession().then(({ data }) => {
+      setSignedIn(!!data.session);
+      check(data.session?.user.id);
+    });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
       setSignedIn(!!sess);
+      check(sess?.user.id);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
@@ -71,6 +86,16 @@ export function SiteHeader() {
             >
               <ListOrdered className="h-4 w-4" />
               <span className="hidden sm:inline">Pedidos</span>
+            </Link>
+          )}
+          {signedIn && isAdmin && (
+            <Link
+              to="/admin/config"
+              aria-label="Configurações"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md"
+            >
+              <Settings className="h-4 w-4" />
+              <span className="hidden sm:inline">Configurações</span>
             </Link>
           )}
           <Link
