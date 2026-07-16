@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { reverseGeocode } from "@/lib/geocode.functions";
 import { forwardGeocode } from "@/lib/route.functions";
+import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
 
 const schema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
@@ -70,6 +71,8 @@ function Checkout() {
     "idle" | "ok" | "out_of_area" | "unknown"
   >("idle");
   const [outOfAreaName, setOutOfAreaName] = useState<string | null>(null);
+  const storeOpen = useStoreOpen();
+  const lojaFechada = storeOpen.data ? !storeOpen.data.aberto : false;
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -564,10 +567,15 @@ function Checkout() {
               </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Enviar pelo WhatsApp
+              {lojaFechada ? "Loja fechada" : "Enviar pelo WhatsApp"}
             </Button>
+            {lojaFechada && (
+              <p className="text-xs text-amber-500 text-center">
+                Estamos fechados no momento. {storeOpen.data?.proximo ? `Reabrimos ${formatProximo(storeOpen.data.proximo)}.` : ""} Seu carrinho fica salvo.
+              </p>
+            )}
             <p className="text-[11px] text-muted-foreground text-center">
               O pedido abre no WhatsApp da loja para confirmação.
             </p>

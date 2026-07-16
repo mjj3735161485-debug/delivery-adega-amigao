@@ -4,9 +4,11 @@ import { Wine, User } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CartSheet } from "./CartSheet";
+import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
 
 export function SiteHeader() {
   const [signedIn, setSignedIn] = useState(false);
+  const storeOpen = useStoreOpen();
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
@@ -28,6 +30,7 @@ export function SiteHeader() {
   const nome = s?.nome ?? "Adega Amigão";
   const logo = s?.logo_url;
   return (
+    <>
     <header className="sticky top-0 z-40 border-b border-border bg-background/85 backdrop-blur-md">
       <div className="mx-auto max-w-6xl px-4 h-16 flex items-center justify-between">
         <Link to="/" className="flex items-center gap-3">
@@ -48,6 +51,18 @@ export function SiteHeader() {
           )}
         </Link>
         <div className="flex items-center gap-2">
+          {storeOpen.data && (
+            <span
+              className={`hidden sm:inline-flex items-center gap-1 text-[11px] font-medium px-2 py-1 rounded-full border ${
+                storeOpen.data.aberto
+                  ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400"
+                  : "border-amber-500/40 bg-amber-500/10 text-amber-400"
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${storeOpen.data.aberto ? "bg-emerald-400" : "bg-amber-400"}`} />
+              {storeOpen.data.aberto ? "Aberto" : "Fechado"}
+            </span>
+          )}
           <Link
             to={signedIn ? "/minha-conta" : "/conta"}
             aria-label={signedIn ? "Minha conta" : "Entrar"}
@@ -60,5 +75,11 @@ export function SiteHeader() {
         </div>
       </div>
     </header>
+    {storeOpen.data && !storeOpen.data.aberto && (
+      <div className="bg-amber-500/10 border-b border-amber-500/30 text-amber-300 text-xs text-center py-1.5 px-4">
+        Estamos fechados. {storeOpen.data.proximo ? `Reabrimos ${formatProximo(storeOpen.data.proximo)}.` : ""}
+      </div>
+    )}
+    </>
   );
 }
