@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PedidosRouteImport } from './routes/pedidos'
 import { Route as MotoboyRouteImport } from './routes/motoboy'
 import { Route as MinhaContaRouteImport } from './routes/minha-conta'
@@ -35,6 +36,11 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PedidosRoute = PedidosRouteImport.update({
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/minha-conta': typeof MinhaContaRoute
   '/motoboy': typeof MotoboyRoute
   '/pedidos': typeof PedidosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -179,6 +186,7 @@ export interface FileRoutesByTo {
   '/minha-conta': typeof MinhaContaRoute
   '/motoboy': typeof MotoboyRoute
   '/pedidos': typeof PedidosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -204,6 +212,7 @@ export interface FileRoutesById {
   '/minha-conta': typeof MinhaContaRoute
   '/motoboy': typeof MotoboyRoute
   '/pedidos': typeof PedidosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -230,6 +239,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/motoboy'
     | '/pedidos'
+    | '/reset-password'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -254,6 +264,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/motoboy'
     | '/pedidos'
+    | '/reset-password'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -278,6 +289,7 @@ export interface FileRouteTypes {
     | '/minha-conta'
     | '/motoboy'
     | '/pedidos'
+    | '/reset-password'
     | '/sitemap.xml'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
@@ -303,6 +315,7 @@ export interface RootRouteChildren {
   MinhaContaRoute: typeof MinhaContaRoute
   MotoboyRoute: typeof MotoboyRoute
   PedidosRoute: typeof PedidosRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
@@ -326,6 +339,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pedidos': {
@@ -487,6 +507,7 @@ const rootRouteChildren: RootRouteChildren = {
   MinhaContaRoute: MinhaContaRoute,
   MotoboyRoute: MotoboyRoute,
   PedidosRoute: PedidosRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
