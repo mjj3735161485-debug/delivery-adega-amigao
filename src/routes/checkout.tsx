@@ -492,11 +492,13 @@ function Checkout() {
                 value={form.endereco}
                 onChange={(e) => {
                   setForm({ ...form, endereco: e.target.value });
+                  setPontoConfirmado(false);
                   if (areaStatus !== "idle") {
                     setDetected(null);
                     setAreaStatus("idle");
                     setLocationMeta(null);
                     setForm((f) => ({ ...f, bairro_id: "" }));
+                    setPinPos(null);
                   }
                 }} />
               <div className="mt-2 flex items-center justify-between gap-2">
@@ -655,9 +657,15 @@ function Checkout() {
               </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada || !pontoConfirmado}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {lojaFechada ? "Loja fechada" : "Enviar pelo WhatsApp"}
+              {lojaFechada
+                ? "Loja fechada"
+                : !form.bairro_id
+                  ? "Detecte sua localização"
+                  : !pontoConfirmado
+                    ? "Confirme o ponto no mapa"
+                    : "Enviar pelo WhatsApp"}
             </Button>
             {lojaFechada && (
               <p className="text-xs text-amber-500 text-center">
