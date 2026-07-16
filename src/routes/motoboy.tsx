@@ -292,6 +292,24 @@ function MotoboyPage() {
           </div>
         )}
 
+        <section className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-border bg-card p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Hoje</p>
+            <p className="font-display text-2xl text-emerald-400">{countHoje}</p>
+            <p className="text-[11px] font-mono text-muted-foreground">{brl(totalHoje)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Semana</p>
+            <p className="font-display text-2xl text-emerald-400">{countSemana}</p>
+            <p className="text-[11px] font-mono text-muted-foreground">{brl(totalSemana)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mês</p>
+            <p className="font-display text-2xl text-emerald-400">{countMes}</p>
+            <p className="text-[11px] font-mono text-muted-foreground">{brl(totalMes)}</p>
+          </div>
+        </section>
+
         {meta > 0 && (
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="flex items-center justify-between mb-2">
