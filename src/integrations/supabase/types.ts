@@ -265,8 +265,10 @@ export type Database = {
           observacoes: string | null
           pagamento: string
           status: string
+          status_updated_at: string
           subtotal: number
           taxa_entrega: number
+          tipo_entrega: string
           total: number
           troco_para: number | null
           updated_at: string
@@ -289,8 +291,10 @@ export type Database = {
           observacoes?: string | null
           pagamento: string
           status?: string
+          status_updated_at?: string
           subtotal: number
           taxa_entrega?: number
+          tipo_entrega?: string
           total: number
           troco_para?: number | null
           updated_at?: string
@@ -313,8 +317,10 @@ export type Database = {
           observacoes?: string | null
           pagamento?: string
           status?: string
+          status_updated_at?: string
           subtotal?: number
           taxa_entrega?: number
+          tipo_entrega?: string
           total?: number
           troco_para?: number | null
           updated_at?: string
@@ -443,6 +449,10 @@ export type Database = {
     Functions: {
       _norm_bairro: { Args: { _s: string }; Returns: string }
       accept_order: { Args: { _numero: number }; Returns: Json }
+      admin_courier_deliveries_range: {
+        Args: { _courier_id: string; _from: string; _to: string }
+        Returns: Json
+      }
       admin_list_users: {
         Args: { _limit?: number; _search?: string }
         Returns: Json
@@ -458,6 +468,11 @@ export type Database = {
       }
       admin_set_role: {
         Args: { _grant: boolean; _role: string; _user_id: string }
+        Returns: Json
+      }
+      auto_advance_pickup_orders: { Args: { _minutes?: number }; Returns: Json }
+      cancel_order_by_customer: {
+        Args: { _numero: number; _token: string }
         Returns: Json
       }
       courier_month_summary: {
