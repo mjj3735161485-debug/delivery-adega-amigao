@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, RefreshCw, XCircle } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, RefreshCw, Store, Truck, XCircle } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
@@ -22,15 +22,24 @@ import { forwardGeocode } from "@/lib/route.functions";
 import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
 import { CheckoutLocationMap } from "@/components/CheckoutLocationMap";
 
-const schema = z.object({
+const baseSchema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
   cliente_telefone: z.string().trim().refine((v) => onlyDigits(v).length >= 10, "Telefone inválido"),
-  bairro_id: z.string().uuid("Não conseguimos identificar seu bairro"),
-  endereco: z.string().trim().min(10, "Endereço muito curto").max(300),
   pagamento: z.enum(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"]),
   troco_para: z.string().optional(),
   observacoes: z.string().max(300).optional(),
 });
+const deliverySchema = baseSchema.extend({
+  tipo_entrega: z.literal("entrega"),
+  bairro_id: z.string().uuid("Não conseguimos identificar seu bairro"),
+  endereco: z.string().trim().min(10, "Endereço muito curto").max(300),
+});
+const pickupSchema = baseSchema.extend({
+  tipo_entrega: z.literal("retirada"),
+  bairro_id: z.string().optional(),
+  endereco: z.string().optional(),
+});
+const schema = z.discriminatedUnion("tipo_entrega", [deliverySchema, pickupSchema]);
 
 export const Route = createFileRoute("/checkout")({
   component: Checkout,
@@ -60,10 +69,12 @@ function Checkout() {
     cliente_telefone: "",
     bairro_id: "",
     endereco: "",
-    pagamento: "Pix" as z.infer<typeof schema>["pagamento"],
+    pagamento: "Pix" as "Dinheiro" | "Pix" | "Cartão débito" | "Cartão crédito",
     troco_para: "",
     observacoes: "",
+    tipo_entrega: "entrega" as "entrega" | "retirada",
   });
+  const isPickup = form.tipo_entrega === "retirada";
   const [detected, setDetected] = useState<
     | { id: string; bairro: string; taxa: number; lat?: number; lng?: number }
     | null
@@ -166,7 +177,7 @@ function Checkout() {
     return () => { mounted = false; };
   }, []);
 
-  const taxa = detected ? Number(detected.taxa) : 0;
+  const taxa = isPickup ? 0 : (detected ? Number(detected.taxa) : 0);
   const total = subtotal + taxa;
 
   function focusEndereco() {
@@ -357,21 +368,21 @@ function Checkout() {
       toast.error("Carrinho vazio");
       return;
     }
-    if (!pontoConfirmado || !pinPos) {
+    if (!isPickup && (!pontoConfirmado || !pinPos)) {
       toast.error("Confirme o ponto exato no mapa antes de enviar.");
       return;
     }
     setSubmitting(true);
     try {
-      // Coordenadas do destino: sempre as do pino confirmado pelo cliente (precisão de 1 m)
-      const destino_lat = String(pinPos.lat);
-      const destino_lng = String(pinPos.lng);
+      const destino_lat = isPickup ? "" : String(pinPos!.lat);
+      const destino_lng = isPickup ? "" : String(pinPos!.lng);
       const { data: rpcData, error } = await supabase.rpc("place_order", {
         _order: {
           cliente_nome: parsed.data.cliente_nome,
           cliente_telefone: onlyDigits(parsed.data.cliente_telefone),
-          bairro_id: parsed.data.bairro_id,
-          endereco: parsed.data.endereco,
+          tipo_entrega: parsed.data.tipo_entrega,
+          bairro_id: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).bairro_id,
+          endereco: isPickup ? "" : (parsed.data as z.infer<typeof deliverySchema>).endereco,
           pagamento: parsed.data.pagamento,
           troco_para:
             parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
@@ -396,17 +407,19 @@ function Checkout() {
 
       // Mensagem WhatsApp
       const linhas = [
-        `*Novo pedido #${order.numero}* 🍻`,
+        `*Novo pedido #${order.numero}* ${isPickup ? "🏪 RETIRADA" : "🛵 ENTREGA"}`,
         "",
         ...items.map((i) => `• ${i.quantidade}x ${i.nome} — ${brl(i.preco * i.quantidade)}`),
         "",
         `Subtotal: ${brl(subtotal)}`,
-        `Entrega (${detected?.bairro}): ${brl(taxa)}`,
+        isPickup ? `Retirada na loja: sem taxa` : `Entrega (${detected?.bairro}): ${brl(taxa)}`,
         `*Total: ${brl(total)}*`,
         "",
         `👤 ${parsed.data.cliente_nome}`,
         `📱 ${formatPhoneBR(parsed.data.cliente_telefone)}`,
-        `📍 ${parsed.data.endereco} — ${detected?.bairro}`,
+        isPickup
+          ? `🏪 Retirar na loja`
+          : `📍 ${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro}`,
         `💳 ${parsed.data.pagamento}${
           parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
             ? ` (troco para ${brl(Number(parsed.data.troco_para.replace(",", ".")))})`
@@ -459,6 +472,41 @@ function Checkout() {
         <form onSubmit={handleSubmit} className="grid gap-6 md:grid-cols-[1fr_320px]">
           <div className="space-y-4">
             <div>
+              <Label>Como quer receber? *</Label>
+              <div className="grid grid-cols-2 gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, tipo_entrega: "entrega" }))}
+                  className={`flex items-center gap-2 border rounded-md p-3 text-sm text-left transition ${
+                    form.tipo_entrega === "entrega"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <Truck className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="font-medium">Entrega</p>
+                    <p className="text-[11px] text-muted-foreground">Motoboy até você</p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm((f) => ({ ...f, tipo_entrega: "retirada" }))}
+                  className={`flex items-center gap-2 border rounded-md p-3 text-sm text-left transition ${
+                    form.tipo_entrega === "retirada"
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <Store className="h-4 w-4 text-primary" />
+                  <div>
+                    <p className="font-medium">Retirada na loja</p>
+                    <p className="text-[11px] text-muted-foreground">Sem taxa · sem endereço</p>
+                  </div>
+                </button>
+              </div>
+            </div>
+            <div>
               <Label htmlFor="nome">Nome *</Label>
               <Input id="nome" value={form.cliente_nome}
                 onChange={(e) => setForm({ ...form, cliente_nome: e.target.value })} />
@@ -469,6 +517,7 @@ function Checkout() {
                 value={form.cliente_telefone}
                 onChange={(e) => setForm({ ...form, cliente_telefone: formatPhoneBR(e.target.value) })} />
             </div>
+            {!isPickup && (
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label htmlFor="end">Endereço de entrega *</Label>
@@ -610,6 +659,7 @@ function Checkout() {
                 </p>
               )}
             </div>
+            )}
             <div>
               <Label>Pagamento na entrega *</Label>
               <RadioGroup
@@ -652,20 +702,26 @@ function Checkout() {
             <div className="border-t border-border pt-3 text-sm space-y-1">
               <div className="flex justify-between"><span>Subtotal</span><span>{brl(subtotal)}</span></div>
               <div className="flex justify-between">
-                <span>Entrega {detected ? `(${detected.bairro})` : ""}</span>
-                <span>{detected ? brl(taxa) : "—"}</span>
+                <span>
+                  {isPickup
+                    ? "🏪 Retirada na loja"
+                    : `Entrega ${detected ? `(${detected.bairro})` : ""}`}
+                </span>
+                <span>{isPickup ? "grátis" : detected ? brl(taxa) : "—"}</span>
               </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada || !pontoConfirmado}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || lojaFechada || (!isPickup && (!form.bairro_id || !pontoConfirmado))}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {lojaFechada
                 ? "Loja fechada"
-                : !form.bairro_id
-                  ? "Detecte sua localização"
-                  : !pontoConfirmado
-                    ? "Confirme o ponto no mapa"
-                    : "Enviar pelo WhatsApp"}
+                : isPickup
+                  ? "Enviar pelo WhatsApp"
+                  : !form.bairro_id
+                    ? "Detecte sua localização"
+                    : !pontoConfirmado
+                      ? "Confirme o ponto no mapa"
+                      : "Enviar pelo WhatsApp"}
             </Button>
             {lojaFechada && (
               <p className="text-xs text-amber-500 text-center">
