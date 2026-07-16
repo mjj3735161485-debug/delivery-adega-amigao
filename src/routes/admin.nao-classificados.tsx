@@ -400,7 +400,7 @@ function NaoClassificados() {
               Nenhum produto para revisar 🎉
             </div>
           ) : (
-            pageItems.map(({ product: p, suggestion }) => {
+            pageItems.map(({ product: p, suggestion, origin, currentName }) => {
               const badge = badgeForScore(suggestion);
               return (
               <div
@@ -415,6 +415,11 @@ function NaoClassificados() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.nome}</p>
                   <div className="flex items-center gap-2 mt-0.5">
+                    {origin === "review" && currentName && (
+                      <Badge variant="outline" className="text-[10px] py-0 h-4 border-sky-500/30 bg-sky-500/10 text-sky-500">
+                        {currentName} →
+                      </Badge>
+                    )}
                     <Badge variant="outline" className={badge.className + " text-[10px] py-0 h-4"}>
                       {badge.label}
                     </Badge>
