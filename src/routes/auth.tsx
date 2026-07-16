@@ -32,6 +32,25 @@ function AuthPage() {
   const [telefone, setTelefone] = useState("");
   const navigate = useNavigate();
 
+  async function forgotPassword() {
+    if (!email) {
+      toast.error("Digite seu email acima antes de continuar.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/reset-password",
+      });
+      if (error) throw error;
+      toast.success("Enviamos um link de redefinição para seu email.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar email");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getSession();
@@ -188,6 +207,15 @@ function AuthPage() {
           >
             {mode === "login" ? "Criar conta (admin ou motoboy)" : "Já tenho conta"}
           </button>
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={forgotPassword}
+              className="w-full text-xs text-primary hover:underline"
+            >
+              Esqueci minha senha
+            </button>
+          )}
           {mode === "signup" && (
             <p className="text-[11px] text-muted-foreground text-center">
               {role === "admin"
