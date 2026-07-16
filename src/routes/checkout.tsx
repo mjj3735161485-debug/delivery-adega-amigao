@@ -26,8 +26,9 @@ import { CheckoutLocationMap } from "@/components/CheckoutLocationMap";
 const baseSchema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
   cliente_telefone: z.string().trim().refine((v) => onlyDigits(v).length >= 10, "Telefone inválido"),
-  pagamento: z.enum(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"]),
+  pagamento: z.enum(["Dinheiro", "Pix", "Cartão", "Misto"]),
   troco_para: z.string().optional(),
+  valor_cartao: z.string().optional(),
   observacoes: z.string().max(300).optional(),
 });
 const deliverySchema = baseSchema.extend({
