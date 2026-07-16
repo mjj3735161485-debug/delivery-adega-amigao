@@ -215,7 +215,7 @@ function Checkout() {
       });
       if (result.ok) {
         setForm((f) => ({ ...f, endereco: result.address }));
-        const matched = applyMatch(result.neighborhood, {
+        const matched = await applyMatch(result.neighborhood, {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         });
@@ -223,7 +223,7 @@ function Checkout() {
           toast.success("Endereço e taxa preenchidos — confira o número.");
         } else if (result.neighborhood) {
           toast.error(`Ainda não entregamos em ${result.neighborhood}.`, {
-            description: "Veja a lista de bairros atendidos abaixo.",
+            description: "Confirme com a loja se sua região é atendida.",
             duration: 7000,
           });
         } else {
@@ -302,7 +302,7 @@ function Checkout() {
         setAreaStatus("unknown");
         return;
       }
-      const matched = applyMatch(g.neighborhood, { lat: g.lat, lng: g.lng });
+      const matched = await applyMatch(g.neighborhood, { lat: g.lat, lng: g.lng });
       if (matched) {
         toast.success("Taxa calculada com sucesso.");
       } else if (g.neighborhood) {
@@ -543,16 +543,9 @@ function Checkout() {
                     <XCircle className="h-4 w-4" />
                     Ainda não entregamos em {outOfAreaName ?? "seu bairro"}.
                   </div>
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                      Ver bairros atendidos ({areas.length})
-                    </summary>
-                    <div className="mt-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
-                      {areas.map((a) => (
-                        <span key={a.id}>{a.bairro} — {brl(Number(a.taxa))}</span>
-                      ))}
-                    </div>
-                  </details>
+                  <p className="mt-1 text-muted-foreground">
+                    Fale com a loja no WhatsApp para confirmar se sua região é atendida.
+                  </p>
                 </div>
               )}
               {areaStatus === "unknown" && (
