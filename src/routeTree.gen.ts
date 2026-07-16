@@ -18,6 +18,7 @@ import { Route as CheckoutRouteImport } from './routes/checkout'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PedidoNumeroRouteImport } from './routes/pedido.$numero'
+import { Route as AdminUsuariosRouteImport } from './routes/admin.usuarios'
 import { Route as AdminProdutosRouteImport } from './routes/admin.produtos'
 import { Route as AdminPedidosRouteImport } from './routes/admin.pedidos'
 import { Route as AdminNaoClassificadosRouteImport } from './routes/admin.nao-classificados'
@@ -73,6 +74,11 @@ const IndexRoute = IndexRouteImport.update({
 const PedidoNumeroRoute = PedidoNumeroRouteImport.update({
   id: '/pedido/$numero',
   path: '/pedido/$numero',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminUsuariosRoute = AdminUsuariosRouteImport.update({
+  id: '/admin/usuarios',
+  path: '/admin/usuarios',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminProdutosRoute = AdminProdutosRouteImport.update({
@@ -152,6 +158,7 @@ export interface FileRoutesByFullPath {
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -174,6 +181,7 @@ export interface FileRoutesByTo {
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -197,6 +205,7 @@ export interface FileRoutesById {
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
+  '/admin/usuarios': typeof AdminUsuariosRoute
   '/pedido/$numero': typeof PedidoNumeroRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -221,6 +230,7 @@ export interface FileRouteTypes {
     | '/admin/nao-classificados'
     | '/admin/pedidos'
     | '/admin/produtos'
+    | '/admin/usuarios'
     | '/pedido/$numero'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -243,6 +253,7 @@ export interface FileRouteTypes {
     | '/admin/nao-classificados'
     | '/admin/pedidos'
     | '/admin/produtos'
+    | '/admin/usuarios'
     | '/pedido/$numero'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -265,6 +276,7 @@ export interface FileRouteTypes {
     | '/admin/nao-classificados'
     | '/admin/pedidos'
     | '/admin/produtos'
+    | '/admin/usuarios'
     | '/pedido/$numero'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
@@ -288,6 +300,7 @@ export interface RootRouteChildren {
   AdminNaoClassificadosRoute: typeof AdminNaoClassificadosRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminProdutosRoute: typeof AdminProdutosRoute
+  AdminUsuariosRoute: typeof AdminUsuariosRoute
   PedidoNumeroRoute: typeof PedidoNumeroRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -356,6 +369,13 @@ declare module '@tanstack/react-router' {
       path: '/pedido/$numero'
       fullPath: '/pedido/$numero'
       preLoaderRoute: typeof PedidoNumeroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/usuarios': {
+      id: '/admin/usuarios'
+      path: '/admin/usuarios'
+      fullPath: '/admin/usuarios'
+      preLoaderRoute: typeof AdminUsuariosRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/produtos': {
@@ -457,6 +477,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminNaoClassificadosRoute: AdminNaoClassificadosRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminProdutosRoute: AdminProdutosRoute,
+  AdminUsuariosRoute: AdminUsuariosRoute,
   PedidoNumeroRoute: PedidoNumeroRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
