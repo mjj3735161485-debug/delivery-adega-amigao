@@ -1,35 +1,26 @@
-## Melhorias em `/admin/entregas`
+## Objetivo
 
-Manter a página existente e adicionar busca + edição rápida em massa.
+Adicionar no checkout um botão dedicado para forçar uma nova leitura do GPS a qualquer momento, ignorando cache do navegador, e atualizar imediatamente a precisão (±m) e o horário exibidos.
 
-### Novos recursos
+## Onde aparece
 
-1. **Busca no topo**
-   - Campo de texto que filtra a lista em tempo real por nome (normalizado, ignora acento/caixa).
-   - Contador "X de Y bairros" ao lado.
+Em `src/routes/checkout.tsx`, ao lado do bloco que já mostra "GPS: ±Xm · atualizado às HH:MM:SS" (logo abaixo da confirmação do bairro detectado).
 
-2. **Edição inline com auto-save**
-   - Nome e taxa editáveis direto na linha.
-   - Salva automaticamente ao sair do campo (`onBlur`) ou pressionar Enter.
-   - Indicador visual de "salvando…" e "salvo" por linha; erro volta ao valor anterior com toast.
+- Antes da primeira leitura: só aparece o botão atual "Usar minha localização" (comportamento inalterado).
+- Depois da primeira leitura: aparece o botão pequeno **"Atualizar GPS"** (ícone de refresh) junto do texto de precisão/horário.
+- Enquanto busca: botão desabilitado com spinner e texto "Atualizando…".
 
-3. **Seleção múltipla + ações em lote**
-   - Checkbox por linha e um "selecionar todos os visíveis" no cabeçalho.
-   - Barra de ações fixa no topo quando há seleção:
-     - **Ativar** / **Desativar** selecionados.
-     - **Ajustar taxa dos selecionados**: modal com dois modos — definir valor fixo (R$) ou ajustar em % (ex.: +10%, −5%), com preview do impacto em cada bairro antes de confirmar.
-     - **Remover selecionados** (confirmação).
-   - Todas as ações usam operações em batch no banco (uma requisição por ação, não uma por linha).
+## Comportamento
 
-4. **Ordenação**
-   - Cabeçalhos clicáveis para ordenar por nome, taxa e status.
+1. Reutiliza a mesma rotina de captura já existente (`getCurrentPosition` + fallback `watchPosition` até 8s) com `maximumAge: 0` e `enableHighAccuracy: true` — sem cache.
+2. Ao concluir:
+   - Atualiza `locationMeta` (precisão + timestamp) — o texto exibido muda na hora.
+   - Re-executa o `reverseGeocode` e o casamento de bairro contra `delivery_areas`, atualizando a taxa se o bairro mudar.
+   - Mostra toast: "GPS atualizado (±Xm)" ou avisos já existentes (sinal fraco, bairro fora da área).
+3. Se o usuário editou o endereço manualmente, o botão continua disponível; a nova leitura sobrescreve o endereço apenas se o reverse geocode devolver um endereço válido (mesma regra atual do "Usar minha localização").
 
-### Arquivos afetados
+## Notas técnicas
 
-- `src/routes/admin.entregas.tsx` — refatorar a UI (busca, checkboxes, edição inline, barra de ações, modal de ajuste em lote).
-- Sem migrações: usa a tabela `delivery_areas` existente e as políticas RLS de admin já configuradas.
-
-### Fora do escopo
-
-- Zonas agrupando bairros (usuário optou por não refazer).
-- Import/export CSV.
+- Extrair a lógica atual de `handleUseLocation` em uma função interna `captureLocation()` reutilizada pelos dois botões, evitando duplicação.
+- Manter o mesmo estado `locating` para desabilitar ambos os botões durante a captura.
+- Sem mudanças em backend, schema ou server functions.

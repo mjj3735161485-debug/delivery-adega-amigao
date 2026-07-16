@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, XCircle } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, RefreshCw, XCircle } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
@@ -541,14 +541,31 @@ function Checkout() {
                     Entregamos em <b>{detected.bairro}</b> — taxa {brl(detected.taxa)}.
                   </div>
                   {locationMeta && (
-                    <p className="text-[11px] text-muted-foreground">
-                      GPS: ±{Math.round(locationMeta.accuracy)}m · atualizado às{" "}
-                      {locationMeta.updatedAt.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        second: "2-digit",
-                      })}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-[11px] text-muted-foreground">
+                        GPS: ±{Math.round(locationMeta.accuracy)}m · atualizado às{" "}
+                        {locationMeta.updatedAt.toLocaleTimeString("pt-BR", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleUseLocation}
+                        disabled={locating}
+                        className="h-6 px-2 text-[11px] text-primary hover:text-primary"
+                      >
+                        {locating ? (
+                          <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3 w-3 mr-1" />
+                        )}
+                        {locating ? "Atualizando…" : "Atualizar GPS"}
+                      </Button>
+                    </div>
                   )}
                 </div>
               )}
