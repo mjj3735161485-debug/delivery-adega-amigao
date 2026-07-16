@@ -1,26 +1,28 @@
 ## Objetivo
 
-Criar uma tela no admin que lista os produtos **sem categoria clara** — ou seja, os que caíram no fallback **Alimentos** por não baterem com nenhuma regra automática — para você realocar manualmente.
+Rodar uma varredura automática movendo para **Cigarros** qualquer produto cujo nome contenha variações de charuto, palheiro ou cigarrilha — independentemente da categoria atual (Tabacaria, Alimentos, etc).
 
-## Nova página: `/admin/nao-classificados`
+## Regra de match (case-insensitive, com/sem acento)
 
-Rota protegida (admin) acessível pelo menu do painel. Mostra apenas os produtos cuja categoria atual é **Alimentos** (fallback) e cujo nome não bate com nenhuma palavra-chave das outras categorias (cerveja, vinho, destilado, sem álcool, gelo, tabacaria, cigarros, copão, combo).
+Regex aplicado sobre `unaccent(lower(nome))`:
 
-### Estrutura da tela
+```
+\m(charut|palheir|cigarrilh|cigarilh|little\s*cigar|mini\s*cigar)
+```
 
-- Cabeçalho com contador ("X produtos para revisar") e busca por nome.
-- Lista compacta com miniatura, nome, preço, status (disponível/indisponível).
-- Ao lado de cada item: um **Select de categoria** que já salva ao mudar (patch direto no banco via Supabase).
-- Botão "Ocultar" para marcar como indisponível sem trocar categoria.
-- Paginação simples de 50 em 50 (temos ~1.000 nesse balde).
+Cobre:
+- **Charuto / charutos / charutinho** → `charut`
+- **Palheiro / palheiros / palheirinho** → `palheir`
+- **Cigarrilha / cigarrilhas** → `cigarrilh` (+ grafia alternativa `cigarilh`)
+- **Little cigar / mini cigar** (marcas importadas)
 
-### Detalhes técnicos
+`\m` = início de palavra, evita falsos positivos como "charutaria" fantasia. Não mexo em produtos que só citem "cigarro/cigarros" — esses já estão na categoria certa.
 
-- Query: `products.select('*').eq('category_id', <id-alimentos>)` + filtro extra no cliente para busca.
-- Update inline: `products.update({ category_id }).eq('id', p.id)` + invalidar `['admin','products']` e `['products']`.
-- Link para a página adicionado em `AdminNav.tsx`.
+## Execução
+
+Um único `UPDATE public.products SET category_id = '<id Cigarros>' WHERE ... AND category_id <> '<id Cigarros>'`, via ferramenta de dados. Ao final, reporto quantos produtos foram movidos e de quais categorias saíram.
 
 ## Fora do escopo
 
-- Não reprocesso regras de classificação automaticamente (você já pediu para deixar as movimentações manuais).
-- Não removo a categoria Alimentos — ela continua servindo como balde temporário.
+- Não altero preços nem disponibilidade.
+- Não crio trigger permanente — é uma varredura pontual. Novas importações seguem o fluxo normal e você refina em `/admin/nao-classificados` ou `/admin/produtos`.
