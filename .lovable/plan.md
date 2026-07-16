@@ -1,36 +1,40 @@
 ## Objetivo
-Remover o seletor de bairro do checkout. Após o cliente clicar em **"Usar minha localização"**, o sistema identifica o bairro automaticamente pelo GPS, calcula a taxa e mostra tudo no resumo — sem o cliente precisar escolher nada.
+Adicionar um **limiar de confiança** à classificação por similaridade de nomes. O admin controla, com um slider, a partir de que confiança uma sugestão aparece e a partir de qual valor a reclassificação pode ser feita automaticamente em lote.
 
-## Fluxo do cliente
-1. Cliente clica em **Usar minha localização**.
-2. GPS + Google Maps preenchem o endereço.
-3. O sistema lê o **bairro** retornado pelo Google e procura na tabela `delivery_areas`:
-   - **Match encontrado** → mostra no resumo: `Entrega (Aruã): R$ 10,00` e libera o botão de enviar pedido.
-   - **Bairro fora da área** → aviso claro: *"Ainda não entregamos nesse bairro"*, com a lista de bairros atendidos em um accordion; botão de enviar fica bloqueado.
-   - **Google não devolveu bairro** → aviso: *"Não conseguimos identificar seu bairro. Digite rua e bairro no campo abaixo"* e o cliente pode tentar novamente ou digitar manualmente (fallback abaixo).
-4. Se o cliente **digitar o endereço manualmente** (sem GPS), um botão **"Calcular taxa de entrega"** ao lado do campo faz forward-geocode do endereço e roda a mesma lógica de matching.
+## Como o score é calculado
+Para cada produto na categoria de fallback ("Alimentos"), o front calcula um score contra cada categoria existente:
+- **Palavras-chave** por categoria (dicionário no client — Cerveja, Vinhos, Destilados, Sem álcool, Gelos, Tabacaria, Cigarros, Copão, Combos, Alimentos): +0.6 por keyword forte, +0.3 por keyword fraca.
+- **Similaridade de tokens** (Jaccard) entre o nome do produto e os nomes de produtos já classificados na categoria: +0 a 0.4.
+- Score final normalizado 0–1. A melhor categoria com score > 0 vira `suggestion`.
 
-## Mudanças técnicas
+## Fluxo no painel `/admin/nao-classificados`
 
-**Backend / server function (`src/lib/geocode.functions.ts`)**
-- `reverseGeocode` passa a retornar também `neighborhood` (extraído de `address_components` — tipos `sublocality_level_1`, `sublocality`, `neighborhood`, com fallback para `administrative_area_level_4`).
-- Novo helper para normalizar nome de bairro (lowercase, sem acento, sem prefixos "Jardim/Vila/Parque") usado para casar com `delivery_areas.bairro`.
+**Controles novos no topo:**
+- Slider *"Mostrar sugestões a partir de"* (0–100%, default 40%) — filtra a lista, exibindo só produtos cuja melhor sugestão passa desse valor. Abaixo disso, o produto continua listado com badge "Sem sugestão".
+- Slider *"Auto-classificar acima de"* (50–100%, default 85%). Serve como referência visual e como corte do botão de lote.
+- Toggle *"Ocultar já sugeridos"* — esconde itens com sugestão ≥ auto, focando o trabalho manual.
 
-**Frontend (`src/routes/checkout.tsx`)**
-- Remove o `<Select>` de bairro e o texto "Entregamos apenas nos bairros listados".
-- Novo estado `detectedArea: { id, bairro, taxa } | null` + `areaStatus: "idle" | "detecting" | "ok" | "out_of_area" | "unknown"`.
-- Após `reverseGeocode` retornar sucesso: consulta `delivery_areas` já em cache e faz match normalizado. Atualiza `detectedArea` e `areaStatus`.
-- Adiciona botão **"Calcular taxa"** que chama `forwardGeocode` quando o endereço foi digitado manualmente (usa a lógica de matching sobre o endereço + address components — para isso o `forwardGeocode` também passa a devolver `neighborhood`).
-- Resumo mostra o bairro detectado ou "—" enquanto não houver.
-- Botão "Enviar pelo WhatsApp" desabilitado enquanto `areaStatus !== "ok"`.
-- Envio ao `place_order` continua passando `bairro_id` (agora vem de `detectedArea.id`), então a RPC não muda.
+**Por item da lista:**
+- Badge da categoria sugerida + score (ex.: "Cerveja · 78%"), colorido:
+  - verde ≥ auto (elegível para lote automático)
+  - âmbar ≥ mostrar
+  - cinza abaixo
+- Botão **Aceitar** (aplica a sugestão) e **Ignorar** (marca sessão-local como ignorado para sumir da tela).
+- O Select "Mover para..." continua disponível para override manual.
 
-**Sem mudanças em:**
-- Painel admin `/admin/entregas` (continua gerenciando bairros e taxas).
-- RPC `place_order` (assinatura idêntica).
-- Banco de dados.
+**Ações em lote:**
+- Botão **"Auto-classificar N produtos"** (N = itens com score ≥ auto). Confirmação com contagem por categoria. Executa `update` em lote via `.in('id', ids)` agrupado por category_id.
+- Botão **"Aceitar todos os visíveis"** aplica sugestão de todos os itens filtrados na página.
 
-## Casos de borda cobertos
-- GPS negado / timeout → mensagens existentes + orientação para digitar endereço e usar "Calcular taxa".
-- Bairro retornado pelo Google com nome diferente (ex.: "Jardim Aruã" vs "Aruã") → normalização remove prefixos e acentos antes do match.
-- Cliente logado com bairro salvo no perfil → mantemos o valor salvo como `detectedArea` inicial (mesmo comportamento de hoje, só que sem UI de seleção).
+## Persistência das preferências
+Os dois valores do slider ficam em `localStorage` (`amigao.classify.thresholds`) — decisão do admin, não vai para o banco.
+
+## Escopo
+- Só front, no arquivo `src/routes/admin.nao-classificados.tsx`.
+- Novo helper puro `src/lib/classify-score.ts` com dicionário de keywords e a função `scoreProduct(nome, categories, sampleByCategory)`.
+- Consulta extra ao Supabase: para cada categoria (exceto fallback), busca até 200 nomes de produtos para o Jaccard — feita uma vez, cacheada pelo React Query.
+- Sem migração de banco, sem mudança na RPC ou nos outros painéis.
+
+## Fora de escopo
+- Reclassificação automática *no cadastro* de novos produtos (pode entrar depois; hoje o import já classifica via SQL).
+- Persistir score/sugestão no banco.
