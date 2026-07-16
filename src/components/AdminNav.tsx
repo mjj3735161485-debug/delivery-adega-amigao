@@ -5,12 +5,12 @@ import { supabase } from "@/integrations/supabase/client";
 
 const tabs = [
   { to: "/admin/pedidos", label: "Pedidos" },
+  { to: "/admin/config", label: "Configurações" },
   { to: "/admin/produtos", label: "Produtos" },
   { to: "/admin/entregas", label: "Entregas" },
   { to: "/admin/motoboys", label: "Motoboys" },
   { to: "/admin/usuarios", label: "Usuários" },
   { to: "/admin/nao-classificados", label: "Revisar" },
-  { to: "/admin/config", label: "Configurações" },
 ] as const;
 
 export function AdminNav({ title }: { title: string }) {
