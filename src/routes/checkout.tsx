@@ -241,6 +241,10 @@ function Checkout() {
       const result = await geocode({
         data: { lat: pos.coords.latitude, lng: pos.coords.longitude },
       });
+      setLocationMeta({
+        accuracy: pos.coords.accuracy,
+        updatedAt: new Date(pos.timestamp),
+      });
       if (result.ok) {
         setForm((f) => ({ ...f, endereco: result.address }));
         const matched = applyMatch(result.neighborhood, {
