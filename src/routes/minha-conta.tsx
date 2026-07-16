@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SiteHeader } from "@/components/SiteHeader";
 import { brl, formatPhoneBR } from "@/lib/format";
 import { toast } from "sonner";
@@ -78,19 +77,6 @@ function MyAccountPage() {
     return () => { mounted = false; };
   }, [navigate]);
 
-  const { data: areas = [] } = useQuery({
-    queryKey: ["delivery-areas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("delivery_areas")
-        .select("id, bairro, taxa")
-        .eq("ativo", true)
-        .order("bairro");
-      if (error) throw error;
-      return data as { id: string; bairro: string; taxa: number }[];
-    },
-  });
-
   const { data: orders = [] } = useQuery({
     queryKey: ["my-orders", userId],
     enabled: !!userId,
@@ -116,7 +102,6 @@ function MyAccountPage() {
         nome: form.nome?.trim() || null,
         telefone: form.telefone?.trim() || null,
         endereco_padrao: form.endereco_padrao?.trim() || null,
-        bairro_id: form.bairro_id,
       });
       if (error) throw error;
       toast.success("Dados salvos.");
@@ -169,24 +154,6 @@ function MyAccountPage() {
             <Input id="p-tel" inputMode="tel" placeholder="(11) 99999-9999"
               value={form.telefone ?? ""}
               onChange={(e) => setForm({ ...form, telefone: formatPhoneBR(e.target.value) })} />
-          </div>
-          <div>
-            <Label htmlFor="p-bairro">Bairro padrão</Label>
-            <Select
-              value={form.bairro_id ?? ""}
-              onValueChange={(v) => setForm({ ...form, bairro_id: v || null })}
-            >
-              <SelectTrigger id="p-bairro">
-                <SelectValue placeholder="Selecione seu bairro" />
-              </SelectTrigger>
-              <SelectContent>
-                {areas.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.bairro} — {brl(Number(a.taxa))}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div>
             <Label htmlFor="p-end">Endereço padrão</Label>

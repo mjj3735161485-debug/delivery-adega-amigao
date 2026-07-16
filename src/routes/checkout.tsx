@@ -90,47 +90,26 @@ function Checkout() {
     },
   });
 
-  const { data: areas = [] } = useQuery({
-    queryKey: ["delivery-areas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("delivery_areas")
-        .select("id, bairro, taxa")
-        .eq("ativo", true)
-        .order("bairro");
-      if (error) throw error;
-      return data as { id: string; bairro: string; taxa: number }[];
-    },
-  });
-
-  function normalizeBairro(s: string) {
-    return s
-      .toLowerCase()
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/\b(jardim|jd\.?|vila|vl\.?|parque|pq\.?|residencial|res\.?|conjunto|cj\.?|chacara|chácara|bairro)\b/g, "")
-      .replace(/[^a-z0-9]+/g, " ")
-      .trim();
-  }
-
-  function matchArea(name: string | null | undefined) {
-    if (!name) return null;
-    const target = normalizeBairro(name);
-    if (!target) return null;
-    let best = areas.find((a) => normalizeBairro(a.bairro) === target);
-    if (best) return best;
-    best = areas.find((a) => {
-      const n = normalizeBairro(a.bairro);
-      return n && (target.includes(n) || n.includes(target));
-    });
-    return best ?? null;
-  }
-
-  function applyMatch(name: string | null, extras?: { lat?: number; lng?: number }) {
-    const m = matchArea(name);
-    if (m) {
-      setDetected({ id: m.id, bairro: m.bairro, taxa: Number(m.taxa), ...extras });
-      setForm((f) => ({ ...f, bairro_id: m.id }));
+  async function applyMatch(
+    name: string | null,
+    extras?: { lat?: number; lng?: number },
+  ) {
+    const candidates = name ? [name] : [];
+    let matched: { id: string; bairro: string; taxa: number } | null = null;
+    if (candidates.length) {
+      const { data } = await supabase.rpc("match_delivery_fee", {
+        _candidates: candidates,
+      });
+      if (data && typeof data === "object") {
+        const d = data as { id?: string; bairro?: string; taxa?: number };
+        if (d.id && d.bairro != null && d.taxa != null) {
+          matched = { id: d.id, bairro: d.bairro, taxa: Number(d.taxa) };
+        }
+      }
+    }
+    if (matched) {
+      setDetected({ ...matched, ...extras });
+      setForm((f) => ({ ...f, bairro_id: matched!.id }));
       setAreaStatus("ok");
       setOutOfAreaName(null);
       return true;
@@ -155,7 +134,7 @@ function Checkout() {
       if (!sess.session) return;
       const { data: p } = await supabase
         .from("customer_profiles")
-        .select("nome, telefone, endereco_padrao, bairro_id")
+        .select("nome, telefone, endereco_padrao")
         .eq("user_id", sess.session.user.id)
         .maybeSingle();
       if (!mounted || !p) return;
@@ -164,21 +143,10 @@ function Checkout() {
         cliente_nome: f.cliente_nome || (p.nome ?? ""),
         cliente_telefone: f.cliente_telefone || (p.telefone ?? ""),
         endereco: f.endereco || (p.endereco_padrao ?? ""),
-        bairro_id: f.bairro_id || (p.bairro_id ?? ""),
       }));
     })();
     return () => { mounted = false; };
   }, []);
-
-  // Se cliente logado trouxe bairro_id salvo, monta o detected a partir dele
-  useEffect(() => {
-    if (detected || !form.bairro_id || areas.length === 0) return;
-    const a = areas.find((x) => x.id === form.bairro_id);
-    if (a) {
-      setDetected({ id: a.id, bairro: a.bairro, taxa: Number(a.taxa) });
-      setAreaStatus("ok");
-    }
-  }, [areas, form.bairro_id, detected]);
 
   const taxa = detected ? Number(detected.taxa) : 0;
   const total = subtotal + taxa;
@@ -247,7 +215,7 @@ function Checkout() {
       });
       if (result.ok) {
         setForm((f) => ({ ...f, endereco: result.address }));
-        const matched = applyMatch(result.neighborhood, {
+        const matched = await applyMatch(result.neighborhood, {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         });
@@ -255,7 +223,7 @@ function Checkout() {
           toast.success("Endereço e taxa preenchidos — confira o número.");
         } else if (result.neighborhood) {
           toast.error(`Ainda não entregamos em ${result.neighborhood}.`, {
-            description: "Veja a lista de bairros atendidos abaixo.",
+            description: "Confirme com a loja se sua região é atendida.",
             duration: 7000,
           });
         } else {
@@ -334,7 +302,7 @@ function Checkout() {
         setAreaStatus("unknown");
         return;
       }
-      const matched = applyMatch(g.neighborhood, { lat: g.lat, lng: g.lng });
+      const matched = await applyMatch(g.neighborhood, { lat: g.lat, lng: g.lng });
       if (matched) {
         toast.success("Taxa calculada com sucesso.");
       } else if (g.neighborhood) {
@@ -575,16 +543,9 @@ function Checkout() {
                     <XCircle className="h-4 w-4" />
                     Ainda não entregamos em {outOfAreaName ?? "seu bairro"}.
                   </div>
-                  <details className="mt-2">
-                    <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                      Ver bairros atendidos ({areas.length})
-                    </summary>
-                    <div className="mt-2 max-h-40 overflow-y-auto grid grid-cols-2 gap-x-3 gap-y-1 text-muted-foreground">
-                      {areas.map((a) => (
-                        <span key={a.id}>{a.bairro} — {brl(Number(a.taxa))}</span>
-                      ))}
-                    </div>
-                  </details>
+                  <p className="mt-1 text-muted-foreground">
+                    Fale com a loja no WhatsApp para confirmar se sua região é atendida.
+                  </p>
                 </div>
               )}
               {areaStatus === "unknown" && (

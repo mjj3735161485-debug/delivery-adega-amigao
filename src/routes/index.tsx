@@ -111,15 +111,9 @@ function Home() {
   const { data: minTaxa } = useQuery({
     queryKey: ["delivery-areas", "min"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("delivery_areas")
-        .select("taxa")
-        .eq("ativo", true)
-        .order("taxa", { ascending: true })
-        .limit(1)
-        .maybeSingle();
+      const { data, error } = await supabase.rpc("min_delivery_fee");
       if (error) throw error;
-      return data?.taxa as number | undefined;
+      return data == null ? undefined : Number(data);
     },
   });
 
