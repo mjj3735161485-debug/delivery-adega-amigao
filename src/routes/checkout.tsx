@@ -535,9 +535,21 @@ function Checkout() {
                 </Button>
               </div>
               {areaStatus === "ok" && detected && (
-                <div className="mt-2 flex items-center gap-2 text-xs text-emerald-500">
-                  <CheckCircle2 className="h-4 w-4" />
-                  Entregamos em <b>{detected.bairro}</b> — taxa {brl(detected.taxa)}.
+                <div className="mt-2 space-y-1">
+                  <div className="flex items-center gap-2 text-xs text-emerald-500">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Entregamos em <b>{detected.bairro}</b> — taxa {brl(detected.taxa)}.
+                  </div>
+                  {locationMeta && (
+                    <p className="text-[11px] text-muted-foreground">
+                      GPS: ±{Math.round(locationMeta.accuracy)}m · atualizado às{" "}
+                      {locationMeta.updatedAt.toLocaleTimeString("pt-BR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        second: "2-digit",
+                      })}
+                    </p>
+                  )}
                 </div>
               )}
               {areaStatus === "out_of_area" && (
