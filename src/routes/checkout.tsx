@@ -193,12 +193,47 @@ function Checkout() {
     }
     setLocating(true);
     try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-        }),
-      );
+      // Obtém uma leitura fresca e, se a precisão estiver ruim (>60m),
+      // faz um watch curto para pegar uma leitura mais precisa do GPS.
+      const getFix = (opts: PositionOptions) =>
+        new Promise<GeolocationPosition>((resolve, reject) =>
+          navigator.geolocation.getCurrentPosition(resolve, reject, opts),
+        );
+      let pos = await getFix({
+        enableHighAccuracy: true,
+        timeout: 15000,
+        maximumAge: 0, // ignora cache — evita usar localização antiga
+      });
+      if (pos.coords.accuracy > 60) {
+        pos = await new Promise<GeolocationPosition>((resolve) => {
+          let best = pos;
+          const id = navigator.geolocation.watchPosition(
+            (p) => {
+              if (p.coords.accuracy < best.coords.accuracy) best = p;
+              if (p.coords.accuracy <= 25) {
+                navigator.geolocation.clearWatch(id);
+                resolve(p);
+              }
+            },
+            () => {
+              navigator.geolocation.clearWatch(id);
+              resolve(best);
+            },
+            { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 },
+          );
+          // limite total de 8s para não travar o checkout
+          setTimeout(() => {
+            navigator.geolocation.clearWatch(id);
+            resolve(best);
+          }, 8000);
+        });
+      }
+      if (pos.coords.accuracy > 200) {
+        toast.warning(`Sinal de GPS fraco (±${Math.round(pos.coords.accuracy)}m).`, {
+          description: "Confirme rua e número antes de finalizar.",
+          duration: 7000,
+        });
+      }
       const result = await geocode({
         data: { lat: pos.coords.latitude, lng: pos.coords.longitude },
       });
