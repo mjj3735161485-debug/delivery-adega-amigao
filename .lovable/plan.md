@@ -1,32 +1,40 @@
-## Adicionar Sign in with Apple (dono/motoboy + cliente final)
+## Comissão, metas e relatórios de motoboys
 
-### Ativação do provedor
-- Ativar **Apple** (managed) via Lovable Cloud — sem precisar de credenciais Apple Developer, funciona out-of-the-box.
-- Manter Email/senha habilitado (dono/motoboy hoje usam).
+### 1. Banco de dados (migração)
+Adicionar em `public.couriers`:
+- `comissao_percent` numeric default 100 — % da taxa que o motoboy recebe (markup do dono = 100 − esse valor).
+- `meta_entregas_mes` int default 0 — meta mensal de entregas.
+- `limite_comissao_mes` numeric default 0 — teto de comissão no mês (0 = sem limite).
 
-### A) Botão Apple no `/auth` atual (dono/motoboy)
-- Instalar `@lovable.dev/cloud-auth-js` e gerar módulo `src/integrations/lovable/` via tool de social auth.
-- Em `src/routes/auth.tsx`, adicionar botão **"Continuar com Apple"** acima do form de email/senha, com divisor "ou".
-- Handler: `lovable.auth.signInWithOAuth("apple", { redirect_uri: window.location.origin + "/auth" })`.
-- Após retorno com sessão: reaproveitar a lógica já existente que consulta `user_roles` e redireciona pra `/motoboy` (motoboy sem admin) ou `/admin/pedidos` (admin). Se **não** tiver nenhuma role, mostrar toast "Conta criada. Peça ao admin liberar acesso." e deslogar — evita conta Apple aleatória ganhar acesso silencioso.
+Nova RPC `courier_month_summary(_courier_id uuid, _ref date)` (SECURITY DEFINER, admin OU o próprio motoboy):
+- Retorna `total_entregas`, `total_taxas`, `comissao_bruta`, `comissao_liquida` (aplicando % e teto), `meta`, `progresso_pct`, e um array `por_bairro[{bairro, entregas, taxa_unit, total}]`.
 
-### B) Login de cliente final (nova área)
-- Nova rota pública `src/routes/conta.tsx` com botão Apple + email/senha (mesmo componente reutilizado).
-- Nova tabela `public.customer_profiles` (id = user_id, nome, telefone, endereco_padrao, bairro_id) com RLS "próprio usuário lê/edita".
-- Nova rota `src/routes/minha-conta.tsx` (autenticada, mas **não** exige role admin/motoboy) mostrando: dados do perfil + histórico de pedidos do cliente.
-- Vincular histórico: adicionar coluna nullable `customer_user_id` em `orders`; a RPC `place_order` grava `auth.uid()` se houver sessão. Nova policy: cliente lê seus próprios pedidos por `customer_user_id`.
-- No `checkout.tsx`: se logado, pré-preencher nome/telefone/endereço/bairro do `customer_profiles` e mostrar link "Ver meus pedidos". Se não logado, manter fluxo anônimo atual (login **não** é obrigatório pra comprar).
-- No `SiteHeader`: botão discreto "Minha conta" (avatar quando logado, "Entrar" quando não).
-- Ajustar `auth.tsx` (painel loja) pra **não** aceitar quem só tem role de cliente — redireciona pra `/minha-conta`.
+Nova RPC `admin_month_report(_ref date)` (admin) para o PDF: mesmos números agregados por motoboy.
 
-### Detalhes técnicos
-- Provider: usar `lovable.auth.signInWithOAuth("apple", ...)` — **nunca** `supabase.auth.signInWithOAuth` direto (regra Lovable Cloud managed).
-- Apple exige `emailRedirectTo`/`redirect_uri` same-origin público: usar `window.location.origin` + callback route pública (não protegida).
-- Guardar rotas admin/motoboy continua via `useAdminGuard`/`useCourierGuard` — nenhuma mudança de segurança nelas.
-- SEO: `/conta` e `/minha-conta` recebem `noindex` (páginas de auth/privadas).
-- Migração inclui `GRANT` corretos e RLS em `customer_profiles`.
+### 2. Painel do dono
+**Nova aba em `/admin/motoboys`** (ou seção dentro da linha de cada motoboy):
+- Campos por motoboy: **% comissão**, **meta de entregas/mês**, **teto de comissão/mês**.
+- Botão "Salvar" por linha.
+- Card resumo do mês mostrando quanto cada motoboy já bateu vs meta e vs teto.
+- Botão **"Baixar relatório PDF do mês"** (seletor de mês) que chama `admin_month_report` e gera PDF client-side com `jspdf` + `jspdf-autotable`:
+  - Cabeçalho da loja + mês de referência.
+  - Tabela por motoboy: entregas, taxa média, total taxas, comissão devida.
+  - Tabela por bairro (consolidada): entregas, taxa, total.
+
+### 3. Painel do motoboy (`/motoboy`)
+- **Barra de progresso** no topo: `X / meta entregas este mês` com % — usa `Progress` do shadcn.
+- Card **Comissão do mês** mostrando bruto, líquido (após % e teto) e aviso quando teto for atingido.
+- Nova seção **"Histórico do mês por bairro"**: tabela com bairro, nº entregas, taxa aplicada, total — vinda do `courier_month_summary`.
+- Nova seção **"Últimas entregas"**: lista das entregas do mês (data/hora, bairro, taxa) — query direta em `orders` filtrando por `courier_id` + `delivered_at` do mês.
+
+### 4. Detalhes técnicos
+- Instalar `jspdf` e `jspdf-autotable` (client-side, sem edge function).
+- `courier_month_summary` valida via `has_role('admin')` OU `couriers.user_id = auth.uid()`.
+- Todos os cálculos financeiros ficam no banco (evita divergência entre painéis).
+- Reaproveitar `useCourierGuard` / `useAdminGuard` — nenhuma mudança em segurança de rota.
+- Formatação BR (R$, datas) via helpers já existentes em `src/lib/format.ts`.
 
 ### Fora do escopo
-- Apple BYOC (credenciais próprias) — fica como managed.
-- Recuperação de senha / verificação de email adicional.
-- Google sign-in (não pediu).
+- Exportar CSV (só PDF, como pedido).
+- Fechamento/travamento de mês (relatório reflete estado atual do banco).
+- Notificação automática quando bater meta/teto.
