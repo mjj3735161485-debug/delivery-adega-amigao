@@ -1,40 +1,38 @@
-## Comissão, metas e relatórios de motoboys
+## Objetivo
+Na página `/pedido/:numero`, mostrar a rota do motoboy até o endereço do cliente com a posição do motoboy atualizando em tempo real, e disparar notificação + som quando ele estiver a ≤ 30 m da entrega.
 
-### 1. Banco de dados (migração)
-Adicionar em `public.couriers`:
-- `comissao_percent` numeric default 100 — % da taxa que o motoboy recebe (markup do dono = 100 − esse valor).
-- `meta_entregas_mes` int default 0 — meta mensal de entregas.
-- `limite_comissao_mes` numeric default 0 — teto de comissão no mês (0 = sem limite).
+## Mudanças
 
-Nova RPC `courier_month_summary(_courier_id uuid, _ref date)` (SECURITY DEFINER, admin OU o próprio motoboy):
-- Retorna `total_entregas`, `total_taxas`, `comissao_bruta`, `comissao_liquida` (aplicando % e teto), `meta`, `progresso_pct`, e um array `por_bairro[{bairro, entregas, taxa_unit, total}]`.
+**1. Banco (`orders` + RPC)**
+- Adicionar `destino_lat double precision`, `destino_lng double precision` em `orders`.
+- Preencher no `place_order`: chamar geocodificação do endereço + bairro via connector Google Maps (server-side) e gravar coordenadas. Se falhar, salva `NULL` e o mapa cai no modo atual (embed por endereço).
+- Habilitar Realtime em `courier_presence` (`ALTER PUBLICATION supabase_realtime ADD TABLE ...`) e ajustar RLS para permitir SELECT da linha do motoboy vinculado a um pedido válido via `access_token` — nova policy `USING (EXISTS (SELECT 1 FROM orders WHERE courier_id = courier_presence.courier_id AND access_token = current_setting('...')))` **não funciona sem sessão**, então em vez disso: criar RPC `get_courier_position(_numero, _token)` retornando `{lat,lng,updated_at,online}` (SECURITY DEFINER) — já existe `get_courier_for_order`, estender/usar essa.
 
-Nova RPC `admin_month_report(_ref date)` (admin) para o PDF: mesmos números agregados por motoboy.
+**2. Frontend — `src/routes/pedido.$numero.tsx`**
+- Substituir o iframe atual do Google Maps Embed por **Maps JavaScript API** (browser key já configurada) com:
+  - Marker do motoboy (atualiza a cada nova posição).
+  - Marker do destino (destino_lat/lng ou geocode client-side do endereço como fallback).
+  - Polyline da rota via **Routes API** (`routes:computeRoutes`, chamada por um `createServerFn` que usa o gateway do connector) — recalcula a cada ~30s ou quando o motoboy desviar > 100 m da rota atual.
+- Subscription Realtime em `courier_presence` filtrada por `courier_id` do pedido (RLS pública de leitura da linha específica via policy dedicada `TO anon USING (true)` — aceitável pois só expõe lat/lng/online do motoboy em turno; alternativa mais segura: polling da RPC a cada 8 s. **Recomendo polling via RPC** para não abrir SELECT anônimo.
+- Calcular distância Haversine entre motoboy e destino a cada atualização.
 
-### 2. Painel do dono
-**Nova aba em `/admin/motoboys`** (ou seção dentro da linha de cada motoboy):
-- Campos por motoboy: **% comissão**, **meta de entregas/mês**, **teto de comissão/mês**.
-- Botão "Salvar" por linha.
-- Card resumo do mês mostrando quanto cada motoboy já bateu vs meta e vs teto.
-- Botão **"Baixar relatório PDF do mês"** (seletor de mês) que chama `admin_month_report` e gera PDF client-side com `jspdf` + `jspdf-autotable`:
-  - Cabeçalho da loja + mês de referência.
-  - Tabela por motoboy: entregas, taxa média, total taxas, comissão devida.
-  - Tabela por bairro (consolidada): entregas, taxa, total.
+**3. Alerta de proximidade (≤ 30 m)**
+- Ao cruzar o limiar pela primeira vez naquela sessão:
+  - `new Notification("Seu pedido está chegando!", { body: "O entregador está a menos de 30 m." })` (pedir `Notification.requestPermission()` no primeiro carregamento, com botão "Ativar alertas").
+  - Tocar um `<audio>` curto (arquivo em `public/sounds/chegando.mp3`).
+  - Toast persistente.
+- Flag em `sessionStorage` para não repetir; reseta se distância voltar > 100 m.
 
-### 3. Painel do motoboy (`/motoboy`)
-- **Barra de progresso** no topo: `X / meta entregas este mês` com % — usa `Progress` do shadcn.
-- Card **Comissão do mês** mostrando bruto, líquido (após % e teto) e aviso quando teto for atingido.
-- Nova seção **"Histórico do mês por bairro"**: tabela com bairro, nº entregas, taxa aplicada, total — vinda do `courier_month_summary`.
-- Nova seção **"Últimas entregas"**: lista das entregas do mês (data/hora, bairro, taxa) — query direta em `orders` filtrando por `courier_id` + `delivered_at` do mês.
+**4. UX**
+- Card acima do mapa: "Motoboy: {nome} • {distância_atual} m • ETA {min}" (ETA vem da resposta da Routes API).
+- Botão "🔔 Ativar alerta sonoro" (necessário por causa da política de autoplay dos browsers — 1 clique do usuário libera o áudio).
 
-### 4. Detalhes técnicos
-- Instalar `jspdf` e `jspdf-autotable` (client-side, sem edge function).
-- `courier_month_summary` valida via `has_role('admin')` OU `couriers.user_id = auth.uid()`.
-- Todos os cálculos financeiros ficam no banco (evita divergência entre painéis).
-- Reaproveitar `useCourierGuard` / `useAdminGuard` — nenhuma mudança em segurança de rota.
-- Formatação BR (R$, datas) via helpers já existentes em `src/lib/format.ts`.
+## Detalhes técnicos
+- Server fn `computeRoute({origin, destination})` → gateway `routes/directions/v2:computeRoutes` com `X-Goog-FieldMask: routes.polyline,routes.duration,routes.distanceMeters`. Decodifica o `encodedPolyline` no cliente com `google.maps.geometry.encoding.decodePath`.
+- Server fn `geocodeAddress(endereco)` (reutilizar `reverseGeocode.functions.ts` — criar `forwardGeocode`).
+- Polling `get_courier_for_order` a cada 8 s via `useQuery` com `refetchInterval`, para quando `status === 'entregue'`.
+- Mapa carregado async com `loading=async&callback=initMap` (padrão do connector).
 
-### Fora do escopo
-- Exportar CSV (só PDF, como pedido).
-- Fechamento/travamento de mês (relatório reflete estado atual do banco).
-- Notificação automática quando bater meta/teto.
+## Fora do escopo
+- Push notification quando a aba está fechada (exigiria service worker + VAPID).
+- Histórico de trajetos.
