@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Wine, User } from "lucide-react";
+import { Wine, User, ListOrdered } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CartSheet } from "./CartSheet";
@@ -62,6 +62,16 @@ export function SiteHeader() {
               <span className={`h-1.5 w-1.5 rounded-full ${storeOpen.data.aberto ? "bg-emerald-400" : "bg-amber-400"}`} />
               {storeOpen.data.aberto ? "Aberto" : "Fechado"}
             </span>
+          )}
+          {signedIn && (
+            <Link
+              to="/pedidos"
+              aria-label="Meus pedidos"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground px-2 py-1 rounded-md"
+            >
+              <ListOrdered className="h-4 w-4" />
+              <span className="hidden sm:inline">Pedidos</span>
+            </Link>
           )}
           <Link
             to={signedIn ? "/minha-conta" : "/conta"}
