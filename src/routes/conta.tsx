@@ -35,6 +35,25 @@ function CustomerAuthPage() {
   const navigate = useNavigate();
   const { next } = Route.useSearch();
 
+  async function forgotPassword() {
+    if (!email) {
+      toast.error("Digite seu email acima antes de continuar.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin + "/reset-password",
+      });
+      if (error) throw error;
+      toast.success("Enviamos um link de redefinição para seu email.");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Erro ao enviar email");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Only accept same-origin relative paths for the post-login destination.
   const safeNext = next && next.startsWith("/") && !next.startsWith("//") ? next : "";
 
@@ -161,6 +180,15 @@ function CustomerAuthPage() {
             className="w-full text-xs text-muted-foreground hover:text-foreground">
             {mode === "login" ? "Criar nova conta" : "Já tenho conta"}
           </button>
+          {mode === "login" && (
+            <button
+              type="button"
+              onClick={forgotPassword}
+              className="w-full text-xs text-primary hover:underline"
+            >
+              Esqueci minha senha
+            </button>
+          )}
         </form>
         <div className="mt-6 pt-4 border-t border-border text-center">
           <p className="text-xs text-muted-foreground mb-2">Equipe da loja?</p>
