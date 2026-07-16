@@ -15,7 +15,15 @@ export const Route = createFileRoute("/admin/horarios")({
 });
 
 type Row = { weekday: number; aberto: boolean; abre: string; fecha: string };
-const DIAS = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado"];
+const DIAS = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
 
 function AdminHorarios() {
   const navigate = useNavigate();
@@ -121,7 +129,7 @@ function AdminHorarios() {
           {isLoading && <p className="p-4 text-sm text-muted-foreground">Carregando…</p>}
           {rows.map((r) => (
             <div key={r.weekday} className="p-3 flex flex-wrap items-center gap-3">
-              <div className="w-24 font-medium">{DIAS[r.weekday]}</div>
+              <div className="w-32 font-medium">{DIAS[r.weekday]}</div>
               <div className="flex items-center gap-2">
                 <Switch
                   checked={r.aberto}
