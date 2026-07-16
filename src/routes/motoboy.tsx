@@ -268,6 +268,10 @@ function MotoboyPage() {
   const taxaEmCurso = emCurso.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const meta = summary?.meta ?? 0;
   const progresso = meta > 0 ? Math.min(100, (countMes / meta) * 100) : 0;
+  const comissaoPercent = summary?.comissao_percent ?? 0;
+  const limiteDia = summary?.limite ?? 0;
+  const comissaoBrutaDia = (totalHoje * comissaoPercent) / 100;
+  const comissaoLiquidaDia = limiteDia > 0 ? Math.min(comissaoBrutaDia, limiteDia) : comissaoBrutaDia;
 
   return (
     <div className="min-h-screen pb-24">
