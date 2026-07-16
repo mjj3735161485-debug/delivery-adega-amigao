@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Loader2, MapPin } from "lucide-react";
+import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, XCircle } from "lucide-react";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
@@ -11,13 +11,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   RadioGroup,
   RadioGroupItem,
@@ -30,7 +23,7 @@ import { forwardGeocode } from "@/lib/route.functions";
 const schema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
   cliente_telefone: z.string().trim().refine((v) => onlyDigits(v).length >= 10, "Telefone inválido"),
-  bairro_id: z.string().uuid("Selecione um bairro atendido"),
+  bairro_id: z.string().uuid("Não conseguimos identificar seu bairro"),
   endereco: z.string().trim().min(10, "Endereço muito curto").max(300),
   pagamento: z.enum(["Dinheiro", "Pix", "Cartão débito", "Cartão crédito"]),
   troco_para: z.string().optional(),
@@ -57,6 +50,7 @@ function Checkout() {
   const navigate = useNavigate();
   const [submitting, setSubmitting] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [calculating, setCalculating] = useState(false);
   const geocode = useServerFn(reverseGeocode);
   const geocodeForward = useServerFn(forwardGeocode);
   const [form, setForm] = useState({
@@ -68,6 +62,14 @@ function Checkout() {
     troco_para: "",
     observacoes: "",
   });
+  const [detected, setDetected] = useState<
+    | { id: string; bairro: string; taxa: number; lat?: number; lng?: number }
+    | null
+  >(null);
+  const [areaStatus, setAreaStatus] = useState<
+    "idle" | "ok" | "out_of_area" | "unknown"
+  >("idle");
+  const [outOfAreaName, setOutOfAreaName] = useState<string | null>(null);
 
   const { data: settings } = useQuery({
     queryKey: ["settings"],
@@ -94,6 +96,50 @@ function Checkout() {
     },
   });
 
+  function normalizeBairro(s: string) {
+    return s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\b(jardim|jd\.?|vila|vl\.?|parque|pq\.?|residencial|res\.?|conjunto|cj\.?|chacara|chácara|bairro)\b/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
+  }
+
+  function matchArea(name: string | null | undefined) {
+    if (!name) return null;
+    const target = normalizeBairro(name);
+    if (!target) return null;
+    let best = areas.find((a) => normalizeBairro(a.bairro) === target);
+    if (best) return best;
+    best = areas.find((a) => {
+      const n = normalizeBairro(a.bairro);
+      return n && (target.includes(n) || n.includes(target));
+    });
+    return best ?? null;
+  }
+
+  function applyMatch(name: string | null, extras?: { lat?: number; lng?: number }) {
+    const m = matchArea(name);
+    if (m) {
+      setDetected({ id: m.id, bairro: m.bairro, taxa: Number(m.taxa), ...extras });
+      setForm((f) => ({ ...f, bairro_id: m.id }));
+      setAreaStatus("ok");
+      setOutOfAreaName(null);
+      return true;
+    }
+    setDetected(null);
+    setForm((f) => ({ ...f, bairro_id: "" }));
+    if (name) {
+      setAreaStatus("out_of_area");
+      setOutOfAreaName(name);
+    } else {
+      setAreaStatus("unknown");
+      setOutOfAreaName(null);
+    }
+    return false;
+  }
+
   // Pré-preenche dados se o cliente está logado
   useEffect(() => {
     let mounted = true;
@@ -117,8 +163,17 @@ function Checkout() {
     return () => { mounted = false; };
   }, []);
 
-  const bairroSel = areas.find((a) => a.id === form.bairro_id);
-  const taxa = Number(bairroSel?.taxa ?? 0);
+  // Se cliente logado trouxe bairro_id salvo, monta o detected a partir dele
+  useEffect(() => {
+    if (detected || !form.bairro_id || areas.length === 0) return;
+    const a = areas.find((x) => x.id === form.bairro_id);
+    if (a) {
+      setDetected({ id: a.id, bairro: a.bairro, taxa: Number(a.taxa) });
+      setAreaStatus("ok");
+    }
+  }, [areas, form.bairro_id, detected]);
+
+  const taxa = detected ? Number(detected.taxa) : 0;
   const total = subtotal + taxa;
 
   function focusEndereco() {
@@ -146,13 +201,30 @@ function Checkout() {
       });
       if (result.ok) {
         setForm((f) => ({ ...f, endereco: result.address }));
-        toast.success("Endereço preenchido — confira o número e complemento.");
+        const matched = applyMatch(result.neighborhood, {
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+        if (matched) {
+          toast.success("Endereço e taxa preenchidos — confira o número.");
+        } else if (result.neighborhood) {
+          toast.error(`Ainda não entregamos em ${result.neighborhood}.`, {
+            description: "Veja a lista de bairros atendidos abaixo.",
+            duration: 7000,
+          });
+        } else {
+          toast.warning("Não conseguimos identificar seu bairro.", {
+            description: "Ajuste o endereço e toque em Calcular taxa.",
+            duration: 7000,
+          });
+        }
         focusEndereco();
         return;
       }
       if (result.code === "no_results") {
         const coords = `Lat: ${pos.coords.latitude.toFixed(5)}, Lng: ${pos.coords.longitude.toFixed(5)} — `;
         setForm((f) => ({ ...f, endereco: f.endereco || coords }));
+        setAreaStatus("unknown");
         toast.error("Não encontramos um endereço para esse ponto.", {
           description: "Digite rua, número e ponto de referência para o entregador.",
           duration: 6000,
@@ -199,6 +271,41 @@ function Checkout() {
     }
   }
 
+  async function handleCalcTaxa() {
+    if (form.endereco.trim().length < 6) {
+      toast.error("Digite o endereço com rua e bairro antes.");
+      return;
+    }
+    setCalculating(true);
+    try {
+      const g = await geocodeForward({
+        data: { endereco: `${form.endereco}, São José dos Campos, SP, Brasil` },
+      });
+      if (!g.ok) {
+        toast.error("Não conseguimos localizar esse endereço.", {
+          description: "Confira rua e bairro e tente de novo.",
+        });
+        setAreaStatus("unknown");
+        return;
+      }
+      const matched = applyMatch(g.neighborhood, { lat: g.lat, lng: g.lng });
+      if (matched) {
+        toast.success("Taxa calculada com sucesso.");
+      } else if (g.neighborhood) {
+        toast.error(`Ainda não entregamos em ${g.neighborhood}.`);
+      } else {
+        toast.warning("Não conseguimos identificar o bairro.", {
+          description: "Inclua o nome do bairro no endereço.",
+        });
+      }
+    } catch (e) {
+      console.error(e);
+      toast.error("Erro ao calcular a taxa. Tente novamente.");
+    } finally {
+      setCalculating(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = schema.safeParse(form);
@@ -212,19 +319,21 @@ function Checkout() {
     }
     setSubmitting(true);
     try {
-      // Tenta geocodificar o endereço para habilitar o rastreio no mapa
-      let destino_lat: string = "";
-      let destino_lng: string = "";
-      try {
-        const g = await geocodeForward({
-          data: { endereco: `${parsed.data.endereco}, ${bairroSel?.bairro ?? ""}, São José dos Campos, SP, Brasil` },
-        });
-        if (g.ok) {
-          destino_lat = String(g.lat);
-          destino_lng = String(g.lng);
+      // Coordenadas do destino: reaproveita as capturadas ou geocodifica agora
+      let destino_lat: string = detected?.lat != null ? String(detected.lat) : "";
+      let destino_lng: string = detected?.lng != null ? String(detected.lng) : "";
+      if (!destino_lat || !destino_lng) {
+        try {
+          const g = await geocodeForward({
+            data: { endereco: `${parsed.data.endereco}, ${detected?.bairro ?? ""}, São José dos Campos, SP, Brasil` },
+          });
+          if (g.ok) {
+            destino_lat = String(g.lat);
+            destino_lng = String(g.lng);
+          }
+        } catch (e) {
+          console.warn("geocode destino falhou", e);
         }
-      } catch (e) {
-        console.warn("geocode destino falhou", e);
       }
       const { data: rpcData, error } = await supabase.rpc("place_order", {
         _order: {
@@ -261,12 +370,12 @@ function Checkout() {
         ...items.map((i) => `• ${i.quantidade}x ${i.nome} — ${brl(i.preco * i.quantidade)}`),
         "",
         `Subtotal: ${brl(subtotal)}`,
-        `Entrega (${bairroSel?.bairro}): ${brl(taxa)}`,
+        `Entrega (${detected?.bairro}): ${brl(taxa)}`,
         `*Total: ${brl(total)}*`,
         "",
         `👤 ${parsed.data.cliente_nome}`,
         `📱 ${formatPhoneBR(parsed.data.cliente_telefone)}`,
-        `📍 ${parsed.data.endereco} — ${bairroSel?.bairro}`,
+        `📍 ${parsed.data.endereco} — ${detected?.bairro}`,
         `💳 ${parsed.data.pagamento}${
           parsed.data.pagamento === "Dinheiro" && parsed.data.troco_para
             ? ` (troco para ${brl(Number(parsed.data.troco_para.replace(",", ".")))})`
