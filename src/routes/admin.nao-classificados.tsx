@@ -44,6 +44,13 @@ type Product = {
   disponivel: boolean;
 };
 
+type ScoredItem = {
+  product: Product;
+  suggestion: Suggestion | null;
+  origin: "fallback" | "review";
+  currentName?: string; // categoria atual quando origin === "review"
+};
+
 function NaoClassificados() {
   const { ready, isAdmin } = useAdminGuard();
   const qc = useQueryClient();
@@ -52,6 +59,7 @@ function NaoClassificados() {
   const [showFrom, setShowFrom] = useState(40); // %
   const [autoFrom, setAutoFrom] = useState(85); // %
   const [hideAutoReady, setHideAutoReady] = useState(false);
+  const [reviewCopaoCombos, setReviewCopaoCombos] = useState(false);
   const [ignored, setIgnored] = useState<Set<string>>(new Set());
   const [busy, setBusy] = useState(false);
 
@@ -60,15 +68,16 @@ function NaoClassificados() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const p = JSON.parse(raw) as { showFrom?: number; autoFrom?: number };
+        const p = JSON.parse(raw) as { showFrom?: number; autoFrom?: number; reviewCopaoCombos?: boolean };
         if (typeof p.showFrom === "number") setShowFrom(p.showFrom);
         if (typeof p.autoFrom === "number") setAutoFrom(p.autoFrom);
+        if (typeof p.reviewCopaoCombos === "boolean") setReviewCopaoCombos(p.reviewCopaoCombos);
       }
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ showFrom, autoFrom })); } catch { /* ignore */ }
-  }, [showFrom, autoFrom]);
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ showFrom, autoFrom, reviewCopaoCombos })); } catch { /* ignore */ }
+  }, [showFrom, autoFrom, reviewCopaoCombos]);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["admin", "categories"],
@@ -118,14 +127,58 @@ function NaoClassificados() {
 
   const samplesMap = samples ?? new Map<string, string[]>();
 
+  // IDs das categorias Copão e Combos (para revisão cruzada)
+  const copaoCombosIds = useMemo(() => {
+    const ids: string[] = [];
+    for (const c of categories) {
+      const n = c.nome.toLowerCase();
+      if (n === "copão" || n === "copao" || n === "combos") ids.push(c.id);
+    }
+    return ids;
+  }, [categories]);
+
+  const { data: reviewProducts = [] } = useQuery({
+    queryKey: ["admin", "products", "copao-combos", copaoCombosIds.join(",")],
+    enabled: ready && isAdmin && reviewCopaoCombos && copaoCombosIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("products")
+        .select("id,category_id,nome,preco,imagem_url,disponivel")
+        .in("category_id", copaoCombosIds)
+        .order("nome");
+      if (error) throw error;
+      return data as Product[];
+    },
+  });
+
   // Calcula sugestões para todos os produtos
-  const scored = useMemo(() => {
+  const scored = useMemo<ScoredItem[]>(() => {
     const targets = categories.filter((c) => c.id !== FALLBACK_CATEGORY_ID);
-    return products.map((p) => ({
+    const fallbackItems: ScoredItem[] = products.map((p) => ({
       product: p,
       suggestion: scoreProduct(p.nome, targets, samplesMap, FALLBACK_CATEGORY_ID),
+      origin: "fallback" as const,
     }));
-  }, [products, categories, samplesMap]);
+    if (!reviewCopaoCombos || copaoCombosIds.length === 0) return fallbackItems;
+
+    const catById = new Map(categories.map((c) => [c.id, c.nome]));
+    const reviewItems: ScoredItem[] = [];
+    for (const p of reviewProducts) {
+      const current = p.category_id;
+      const sug = scoreProduct(p.nome, targets, samplesMap, current);
+      // Só interessa quando a melhor sugestão é a outra categoria do par Copão/Combos
+      if (!sug) continue;
+      if (!copaoCombosIds.includes(sug.category_id)) continue;
+      if (sug.category_id === current) continue;
+      reviewItems.push({
+        product: p,
+        suggestion: sug,
+        origin: "review",
+        currentName: current ? catById.get(current) : undefined,
+      });
+    }
+    return [...fallbackItems, ...reviewItems];
+  }, [products, categories, samplesMap, reviewCopaoCombos, reviewProducts, copaoCombosIds]);
 
   const filtered = useMemo(() => {
     const q = busca.trim().toLowerCase();
@@ -163,6 +216,7 @@ function NaoClassificados() {
     toast.success("Categoria atualizada");
     qc.invalidateQueries({ queryKey: ["admin", "products"] });
     qc.invalidateQueries({ queryKey: ["admin", "products", "fallback"] });
+    qc.invalidateQueries({ queryKey: ["admin", "products", "copao-combos"] });
     qc.invalidateQueries({ queryKey: ["products"] });
   }
 
@@ -188,6 +242,7 @@ function NaoClassificados() {
       }
       if (ok > 0) toast.success(`${ok} produto(s) reclassificado(s)`);
       qc.invalidateQueries({ queryKey: ["admin", "products", "fallback"] });
+      qc.invalidateQueries({ queryKey: ["admin", "products", "copao-combos"] });
       qc.invalidateQueries({ queryKey: ["products"] });
     } finally {
       setBusy(false);
@@ -300,6 +355,10 @@ function NaoClassificados() {
                 <Switch checked={hideAutoReady} onCheckedChange={setHideAutoReady} />
                 Ocultar já elegíveis para auto
               </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <Switch checked={reviewCopaoCombos} onCheckedChange={setReviewCopaoCombos} />
+                Incluir revisão Copão ↔ Combos
+              </label>
               <div className="ml-auto flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
@@ -341,7 +400,7 @@ function NaoClassificados() {
               Nenhum produto para revisar 🎉
             </div>
           ) : (
-            pageItems.map(({ product: p, suggestion }) => {
+            pageItems.map(({ product: p, suggestion, origin, currentName }) => {
               const badge = badgeForScore(suggestion);
               return (
               <div
@@ -356,6 +415,11 @@ function NaoClassificados() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{p.nome}</p>
                   <div className="flex items-center gap-2 mt-0.5">
+                    {origin === "review" && currentName && (
+                      <Badge variant="outline" className="text-[10px] py-0 h-4 border-sky-500/30 bg-sky-500/10 text-sky-500">
+                        {currentName} →
+                      </Badge>
+                    )}
                     <Badge variant="outline" className={badge.className + " text-[10px] py-0 h-4"}>
                       {badge.label}
                     </Badge>

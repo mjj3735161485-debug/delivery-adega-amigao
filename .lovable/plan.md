@@ -1,40 +1,23 @@
 ## Objetivo
-Adicionar um **limiar de confiança** à classificação por similaridade de nomes. O admin controla, com um slider, a partir de que confiança uma sugestão aparece e a partir de qual valor a reclassificação pode ser feita automaticamente em lote.
+Estender a página **Revisar categorias** para também identificar e realocar automaticamente produtos que estão na categoria errada entre **Copão** e **Combos**, usando os mesmos sliders de confiança já implementados.
 
-## Como o score é calculado
-Para cada produto na categoria de fallback ("Alimentos"), o front calcula um score contra cada categoria existente:
-- **Palavras-chave** por categoria (dicionário no client — Cerveja, Vinhos, Destilados, Sem álcool, Gelos, Tabacaria, Cigarros, Copão, Combos, Alimentos): +0.6 por keyword forte, +0.3 por keyword fraca.
-- **Similaridade de tokens** (Jaccard) entre o nome do produto e os nomes de produtos já classificados na categoria: +0 a 0.4.
-- Score final normalizado 0–1. A melhor categoria com score > 0 vira `suggestion`.
+## Como funciona
+- Novo toggle no topo da página: **"Incluir revisão Copão ↔ Combos"** (desligado por padrão).
+- Quando ligado, uma nova query carrega os produtos que estão hoje em Copão + Combos e roda o mesmo `scoreProduct()` contra **as duas categorias**, ignorando a atual do produto.
+- Se o score da categoria oposta for maior que a atual **e** passar o limiar "Mostrar sugestões", o item aparece numa lista separada com badge indicando `atual → sugerida`.
+- Os mesmos botões funcionam:
+  - **Aceitar** individual move o produto.
+  - **Auto-classificar N** e **Aceitar visíveis** consideram esses itens junto com os do fallback, respeitando os mesmos sliders.
+  - **Ignorar** oculta o item da sessão.
 
-## Fluxo no painel `/admin/nao-classificados`
-
-**Controles novos no topo:**
-- Slider *"Mostrar sugestões a partir de"* (0–100%, default 40%) — filtra a lista, exibindo só produtos cuja melhor sugestão passa desse valor. Abaixo disso, o produto continua listado com badge "Sem sugestão".
-- Slider *"Auto-classificar acima de"* (50–100%, default 85%). Serve como referência visual e como corte do botão de lote.
-- Toggle *"Ocultar já sugeridos"* — esconde itens com sugestão ≥ auto, focando o trabalho manual.
-
-**Por item da lista:**
-- Badge da categoria sugerida + score (ex.: "Cerveja · 78%"), colorido:
-  - verde ≥ auto (elegível para lote automático)
-  - âmbar ≥ mostrar
-  - cinza abaixo
-- Botão **Aceitar** (aplica a sugestão) e **Ignorar** (marca sessão-local como ignorado para sumir da tela).
-- O Select "Mover para..." continua disponível para override manual.
-
-**Ações em lote:**
-- Botão **"Auto-classificar N produtos"** (N = itens com score ≥ auto). Confirmação com contagem por categoria. Executa `update` em lote via `.in('id', ids)` agrupado por category_id.
-- Botão **"Aceitar todos os visíveis"** aplica sugestão de todos os itens filtrados na página.
-
-## Persistência das preferências
-Os dois valores do slider ficam em `localStorage` (`amigao.classify.thresholds`) — decisão do admin, não vai para o banco.
-
-## Escopo
-- Só front, no arquivo `src/routes/admin.nao-classificados.tsx`.
-- Novo helper puro `src/lib/classify-score.ts` com dicionário de keywords e a função `scoreProduct(nome, categories, sampleByCategory)`.
-- Consulta extra ao Supabase: para cada categoria (exceto fallback), busca até 200 nomes de produtos para o Jaccard — feita uma vez, cacheada pelo React Query.
-- Sem migração de banco, sem mudança na RPC ou nos outros painéis.
+## Mudanças técnicas
+- `src/lib/classify-score.ts`: pequeno ajuste — permitir passar apenas um subconjunto de categorias-alvo (já suportado; nova função helper `scoreAgainst(names, targets, samples)` para deixar explícito).
+- `src/routes/admin.nao-classificados.tsx`:
+  - Nova query `["admin","products","copao-combos"]` buscando os produtos das duas categorias.
+  - `useMemo` `scored` combina fallback + revisão, marcando cada item com `origem: "fallback" | "review"` para o header do item mostrar a categoria atual quando for revisão.
+  - Header dos cards de revisão mostra: `[Copão] → [Combos] · 82%`.
+  - Toggle salvo em `localStorage` junto com os sliders.
 
 ## Fora de escopo
-- Reclassificação automática *no cadastro* de novos produtos (pode entrar depois; hoje o import já classifica via SQL).
-- Persistir score/sugestão no banco.
+- Não altera outras categorias (Cerveja, Vinhos, etc.). Se o dono quiser estender depois, o mesmo padrão se reaplica.
+- Nenhuma mudança no banco.
