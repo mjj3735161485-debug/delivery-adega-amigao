@@ -41,7 +41,7 @@ function AdminUsuarios() {
     enabled: ready && isAdmin,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("admin_list_users", {
-        _search: applied || null,
+        _search: applied || undefined,
         _limit: 200,
       });
       if (error) throw error;
