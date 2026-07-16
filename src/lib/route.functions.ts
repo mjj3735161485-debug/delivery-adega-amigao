@@ -14,7 +14,7 @@ function creds() {
 }
 
 export type ForwardGeocodeResult =
-  | { ok: true; lat: number; lng: number; formatted: string }
+  | { ok: true; lat: number; lng: number; formatted: string; neighborhood: string | null }
   | { ok: false; code: "not_configured" | "no_results" | "upstream" };
 
 export const forwardGeocode = createServerFn({ method: "POST" })
@@ -37,17 +37,38 @@ export const forwardGeocode = createServerFn({ method: "POST" })
       results: Array<{
         formatted_address: string;
         geometry: { location: { lat: number; lng: number } };
+        address_components?: Array<{
+          long_name: string;
+          short_name: string;
+          types: string[];
+        }>;
       }>;
     };
     if (json.status !== "OK" || !json.results?.length) {
       return { ok: false, code: "no_results" };
     }
     const r = json.results[0];
+    let neighborhood: string | null = null;
+    const preferOrder = [
+      "sublocality_level_1",
+      "sublocality",
+      "neighborhood",
+      "administrative_area_level_4",
+      "administrative_area_level_3",
+    ];
+    for (const t of preferOrder) {
+      const comp = r.address_components?.find((c) => c.types.includes(t));
+      if (comp) {
+        neighborhood = comp.long_name;
+        break;
+      }
+    }
     return {
       ok: true,
       lat: r.geometry.location.lat,
       lng: r.geometry.location.lng,
       formatted: r.formatted_address,
+      neighborhood,
     };
   });
 
