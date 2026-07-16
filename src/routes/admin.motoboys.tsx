@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Trash2, Circle, FileDown, Save } from "lucide-react";
+import { Loader2, Plus, Trash2, Circle, FileDown, Save, BarChart3 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -410,6 +411,11 @@ function CourierCard({
         </div>
         <Button size="sm" variant={c.ativo ? "outline" : "secondary"} onClick={onToggle}>
           {c.ativo ? "Ativo" : "Inativo"}
+        </Button>
+        <Button asChild size="sm" variant="outline">
+          <Link to="/admin/motoboys/$id" params={{ id: c.id }}>
+            <BarChart3 className="h-4 w-4 mr-1" /> Entregas
+          </Link>
         </Button>
         <Button size="icon" variant="ghost" onClick={onExcluir}>
           <Trash2 className="h-4 w-4 text-destructive" />
