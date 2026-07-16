@@ -20,6 +20,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { reverseGeocode } from "@/lib/geocode.functions";
 import { forwardGeocode } from "@/lib/route.functions";
 import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
+import { CheckoutLocationMap } from "@/components/CheckoutLocationMap";
 
 const schema = z.object({
   cliente_nome: z.string().trim().min(2, "Informe seu nome").max(80),
@@ -75,6 +76,8 @@ function Checkout() {
     accuracy: number;
     updatedAt: Date;
   } | null>(null);
+  const [pontoConfirmado, setPontoConfirmado] = useState(false);
+  const [pinPos, setPinPos] = useState<{ lat: number; lng: number } | null>(null);
   const storeOpen = useStoreOpen();
   const lojaFechada = storeOpen.data ? !storeOpen.data.aberto : false;
 
@@ -124,6 +127,21 @@ function Checkout() {
       setOutOfAreaName(null);
     }
     return false;
+  }
+
+  // Recalcula endereço + bairro + taxa quando o cliente arrasta o pino
+  async function handlePinChange(lat: number, lng: number) {
+    setPinPos({ lat, lng });
+    setPontoConfirmado(false);
+    try {
+      const result = await geocode({ data: { lat, lng } });
+      if (result.ok) {
+        setForm((f) => ({ ...f, endereco: result.address }));
+        await applyMatch(result.neighborhood, { lat, lng });
+      }
+    } catch (e) {
+      console.warn("reverseGeocode pin", e);
+    }
   }
 
   // Pré-preenche dados se o cliente está logado
@@ -219,8 +237,12 @@ function Checkout() {
           lat: pos.coords.latitude,
           lng: pos.coords.longitude,
         });
+        setPinPos({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        setPontoConfirmado(false);
         if (matched) {
-          toast.success("Endereço e taxa preenchidos — confira o número.");
+          toast.success("Localização carregada.", {
+            description: "Arraste o pino até a porta de casa e toque em Confirmar este ponto.",
+          });
         } else if (result.neighborhood) {
           toast.error(`Ainda não entregamos em ${result.neighborhood}.`, {
             description: "Confirme com a loja se sua região é atendida.",
@@ -303,6 +325,10 @@ function Checkout() {
         return;
       }
       const matched = await applyMatch(g.neighborhood, { lat: g.lat, lng: g.lng });
+      if (g.lat != null && g.lng != null) {
+        setPinPos({ lat: g.lat, lng: g.lng });
+        setPontoConfirmado(false);
+      }
       if (matched) {
         toast.success("Taxa calculada com sucesso.");
       } else if (g.neighborhood) {
@@ -331,24 +357,15 @@ function Checkout() {
       toast.error("Carrinho vazio");
       return;
     }
+    if (!pontoConfirmado || !pinPos) {
+      toast.error("Confirme o ponto exato no mapa antes de enviar.");
+      return;
+    }
     setSubmitting(true);
     try {
-      // Coordenadas do destino: reaproveita as capturadas ou geocodifica agora
-      let destino_lat: string = detected?.lat != null ? String(detected.lat) : "";
-      let destino_lng: string = detected?.lng != null ? String(detected.lng) : "";
-      if (!destino_lat || !destino_lng) {
-        try {
-          const g = await geocodeForward({
-            data: { endereco: `${parsed.data.endereco}, ${detected?.bairro ?? ""}, São José dos Campos, SP, Brasil` },
-          });
-          if (g.ok) {
-            destino_lat = String(g.lat);
-            destino_lng = String(g.lng);
-          }
-        } catch (e) {
-          console.warn("geocode destino falhou", e);
-        }
-      }
+      // Coordenadas do destino: sempre as do pino confirmado pelo cliente (precisão de 1 m)
+      const destino_lat = String(pinPos.lat);
+      const destino_lng = String(pinPos.lng);
       const { data: rpcData, error } = await supabase.rpc("place_order", {
         _order: {
           cliente_nome: parsed.data.cliente_nome,
@@ -475,11 +492,13 @@ function Checkout() {
                 value={form.endereco}
                 onChange={(e) => {
                   setForm({ ...form, endereco: e.target.value });
+                  setPontoConfirmado(false);
                   if (areaStatus !== "idle") {
                     setDetected(null);
                     setAreaStatus("idle");
                     setLocationMeta(null);
                     setForm((f) => ({ ...f, bairro_id: "" }));
+                    setPinPos(null);
                   }
                 }} />
               <div className="mt-2 flex items-center justify-between gap-2">
@@ -511,7 +530,7 @@ function Checkout() {
                   {locationMeta && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[11px] text-muted-foreground">
-                        GPS: ±{Math.round(locationMeta.accuracy)}m · atualizado às{" "}
+                        GPS inicial: ±{Math.round(locationMeta.accuracy)}m · {" "}
                         {locationMeta.updatedAt.toLocaleTimeString("pt-BR", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -531,9 +550,46 @@ function Checkout() {
                         ) : (
                           <RefreshCw className="h-3 w-3 mr-1" />
                         )}
-                        {locating ? "Atualizando…" : "Atualizar GPS"}
+                        {locating ? "Atualizando…" : "Reposicionar pelo GPS"}
                       </Button>
                     </div>
+                  )}
+                  {pinPos && (
+                    <>
+                      <p className="text-[11px] text-amber-400 mt-2">
+                        <b>Arraste o pino</b> até a porta de casa para precisão exata. Toque no mapa também move o pino.
+                      </p>
+                      <CheckoutLocationMap
+                        lat={pinPos.lat}
+                        lng={pinPos.lng}
+                        onChange={handlePinChange}
+                      />
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          {pontoConfirmado
+                            ? "✓ Ponto confirmado. Você pode finalizar o pedido."
+                            : "Confirme o ponto após ajustar o pino."}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={pontoConfirmado ? "secondary" : "default"}
+                          onClick={() => {
+                            setPontoConfirmado(true);
+                            toast.success("Ponto de entrega confirmado.");
+                          }}
+                          className="h-7 px-2 text-xs shrink-0"
+                        >
+                          {pontoConfirmado ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Ponto confirmado
+                            </>
+                          ) : (
+                            <>✓ Confirmar este ponto</>
+                          )}
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
@@ -601,9 +657,15 @@ function Checkout() {
               </div>
               <div className="flex justify-between font-bold text-base pt-1"><span>Total</span><span className="text-primary">{brl(total)}</span></div>
             </div>
-            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada}>
+            <Button type="submit" size="lg" className="w-full" disabled={submitting || !form.bairro_id || lojaFechada || !pontoConfirmado}>
               {submitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {lojaFechada ? "Loja fechada" : "Enviar pelo WhatsApp"}
+              {lojaFechada
+                ? "Loja fechada"
+                : !form.bairro_id
+                  ? "Detecte sua localização"
+                  : !pontoConfirmado
+                    ? "Confirme o ponto no mapa"
+                    : "Enviar pelo WhatsApp"}
             </Button>
             {lojaFechada && (
               <p className="text-xs text-amber-500 text-center">
