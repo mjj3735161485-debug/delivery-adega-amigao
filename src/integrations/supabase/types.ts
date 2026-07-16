@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_hours: {
+        Row: {
+          aberto: boolean
+          abre: string
+          fecha: string
+          updated_at: string
+          weekday: number
+        }
+        Insert: {
+          aberto?: boolean
+          abre?: string
+          fecha?: string
+          updated_at?: string
+          weekday: number
+        }
+        Update: {
+          aberto?: boolean
+          abre?: string
+          fecha?: string
+          updated_at?: string
+          weekday?: number
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           created_at: string
@@ -439,6 +463,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_store_open: { Args: never; Returns: Json }
       mark_delivered: { Args: { _numero: number }; Returns: Json }
       place_order: { Args: { _items: Json; _order: Json }; Returns: Json }
       update_courier_presence: {
