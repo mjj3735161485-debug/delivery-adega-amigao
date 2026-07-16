@@ -318,7 +318,7 @@ function LiveTracker({
     })();
   }, [cLat, cLng, dLat, dLng, routeFn]);
 
-  // Alerta de proximidade ≤ 30 m
+  // Alerta de proximidade ≤ 1 m
   useEffect(() => {
     if (distMeters == null) return;
     const fired = sessionStorage.getItem(alertKey) === "1";
@@ -326,17 +326,17 @@ function LiveTracker({
       sessionStorage.removeItem(alertKey);
       return;
     }
-    if (distMeters <= 30 && !fired) {
+    if (distMeters <= 1 && !fired) {
       sessionStorage.setItem(alertKey, "1");
       toast.success("🛵 Seu entregador está chegando!", {
-        description: "Menos de 30 metros. Prepare-se para receber.",
+        description: "Menos de 1 metro. Prepare-se para receber.",
         duration: 15000,
       });
       // Notificação
       if ("Notification" in window && Notification.permission === "granted") {
         try {
           new Notification("Seu pedido está chegando!", {
-            body: "O entregador está a menos de 30 metros.",
+            body: "O entregador está a menos de 1 metro.",
           });
         } catch { /* noop */ }
       }

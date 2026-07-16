@@ -29,19 +29,26 @@ export function AdminNav({ title }: { title: string }) {
           </p>
         </div>
         <nav className="flex items-center gap-1">
-          {tabs.map((t) => (
-            <Link
-              key={t.to}
-              to={t.to}
-              className={`text-xs px-3 py-1.5 rounded-full border transition ${
-                pathname === t.to
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "border-border text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {t.label}
-            </Link>
-          ))}
+          {tabs.map((t) => {
+            const active = pathname === t.to;
+            const isUsuarios = t.to === "/admin/usuarios";
+            const cls = isUsuarios
+              ? active
+                ? "bg-yellow-400 text-black border-yellow-400 font-semibold shadow-[0_0_0_2px_rgba(250,204,21,0.35)]"
+                : "bg-yellow-400/15 text-yellow-300 border-yellow-400/60 hover:bg-yellow-400/25 font-semibold"
+              : active
+                ? "bg-primary text-primary-foreground border-primary"
+                : "border-border text-muted-foreground hover:text-foreground";
+            return (
+              <Link
+                key={t.to}
+                to={t.to}
+                className={`text-xs px-3 py-1.5 rounded-full border transition ${cls}`}
+              >
+                {t.label}
+              </Link>
+            );
+          })}
           <Button asChild variant="ghost" size="sm">
             <Link to="/">Loja</Link>
           </Button>
