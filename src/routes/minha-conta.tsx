@@ -157,24 +157,6 @@ function MyAccountPage() {
               onChange={(e) => setForm({ ...form, telefone: formatPhoneBR(e.target.value) })} />
           </div>
           <div>
-            <Label htmlFor="p-bairro">Bairro padrão</Label>
-            <Select
-              value={form.bairro_id ?? ""}
-              onValueChange={(v) => setForm({ ...form, bairro_id: v || null })}
-            >
-              <SelectTrigger id="p-bairro">
-                <SelectValue placeholder="Selecione seu bairro" />
-              </SelectTrigger>
-              <SelectContent>
-                {areas.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {a.bairro} — {brl(Number(a.taxa))}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
             <Label htmlFor="p-end">Endereço padrão</Label>
             <Textarea id="p-end" rows={3}
               value={form.endereco_padrao ?? ""}
