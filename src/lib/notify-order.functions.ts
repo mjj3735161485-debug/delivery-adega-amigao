@@ -28,11 +28,10 @@ export const notifyOrder = createServerFn({ method: "POST" })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: data.nome,
-          itens: data.itens,
-          valor: String(data.valor),
-          tempo: data.tempo ?? "40 minutos",
-          endereco: data.endereco,
           telefone: data.telefone,
+          endereco: data.endereco,
+          valor: data.valor,
+          itens: data.itens,
         }),
       });
       const text = await res.text();
