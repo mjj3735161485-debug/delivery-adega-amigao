@@ -38,6 +38,8 @@ type Courier = {
 };
 type Presence = { courier_id: string; online: boolean; updated_at: string };
 type DeliveredRow = { courier_id: string | null; taxa_entrega: number; delivered_at: string };
+type ActiveRow = { courier_id: string | null; status: string };
+type MonthRow = { courier_id: string | null; delivered_at: string };
 
 type ReportMotoboy = {
   id: string; nome: string; comissao_percent: number; meta_entregas_mes: number;
@@ -101,6 +103,40 @@ function AdminMotoboys() {
         .gte("delivered_at", start.toISOString());
       if (error) throw error;
       return data as DeliveredRow[];
+    },
+  });
+
+  const { data: emAndamento = [] } = useQuery({
+    queryKey: ["admin", "orders_active"],
+    enabled: ready && isAdmin,
+    refetchInterval: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select("courier_id, status")
+        .not("courier_id", "is", null)
+        .in("status", ["em_entrega", "aceito", "novo"])
+        .is("delivered_at", null);
+      if (error) throw error;
+      return data as ActiveRow[];
+    },
+  });
+
+  const { data: entregasMes = [] } = useQuery({
+    queryKey: ["admin", "delivered_month"],
+    enabled: ready && isAdmin,
+    refetchInterval: 60_000,
+    queryFn: async () => {
+      const start = new Date();
+      start.setDate(1);
+      start.setHours(0, 0, 0, 0);
+      const { data, error } = await supabase
+        .from("orders")
+        .select("courier_id, delivered_at")
+        .not("delivered_at", "is", null)
+        .gte("delivered_at", start.toISOString());
+      if (error) throw error;
+      return data as MonthRow[];
     },
   });
 
@@ -231,6 +267,14 @@ function AdminMotoboys() {
     return delivered.filter((d) => d.courier_id === courierId).length;
   }
 
+  function pedidosAtivos(courierId: string): number {
+    return emAndamento.filter((d) => d.courier_id === courierId).length;
+  }
+
+  function entregasNoMes(courierId: string): number {
+    return entregasMes.filter((d) => d.courier_id === courierId).length;
+  }
+
   if (!ready) return <div className="p-8 text-muted-foreground">Carregando...</div>;
   if (!isAdmin) return <div className="p-8 text-center">Sem permissão de admin.</div>;
 
@@ -297,6 +341,8 @@ function AdminMotoboys() {
               online={isOnline(c.id)}
               comissaoHoje={comissaoHoje(c.id)}
               entregasHoje={entregasHoje(c.id)}
+              pedidosAtivos={pedidosAtivos(c.id)}
+              entregasMes={entregasNoMes(c.id)}
               onToggle={() => toggleAtivo(c)}
               onExcluir={() => excluir(c)}
               onSalvar={(patch) => salvarConfig(c, patch)}
@@ -309,12 +355,14 @@ function AdminMotoboys() {
 }
 
 function CourierCard({
-  c, online, comissaoHoje, entregasHoje, onToggle, onExcluir, onSalvar,
+  c, online, comissaoHoje, entregasHoje, pedidosAtivos, entregasMes, onToggle, onExcluir, onSalvar,
 }: {
   c: Courier;
   online: boolean;
   comissaoHoje: number;
   entregasHoje: number;
+  pedidosAtivos: number;
+  entregasMes: number;
   onToggle: () => void;
   onExcluir: () => void;
   onSalvar: (patch: Partial<Pick<Courier, "comissao_percent" | "meta_entregas_mes" | "limite_comissao_mes" | "diaria">>) => Promise<void>;
@@ -353,7 +401,12 @@ function CourierCard({
         </div>
         <div className="text-right text-xs">
           <p className="font-mono text-emerald-400 text-sm">{brl(comissaoHoje)}</p>
-          <p className="text-muted-foreground">{entregasHoje} entregas hoje</p>
+          <p className="text-muted-foreground">
+            <span className="text-amber-400 font-semibold">{pedidosAtivos}</span> em andamento
+          </p>
+          <p className="text-muted-foreground">
+            {entregasHoje} hoje · {entregasMes} no mês
+          </p>
         </div>
         <Button size="sm" variant={c.ativo ? "outline" : "secondary"} onClick={onToggle}>
           {c.ativo ? "Ativo" : "Inativo"}
