@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Search, Shield, Bike, User } from "lucide-react";
+import { Loader2, Search, Shield, Bike, User, Power, PowerOff } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAdminGuard } from "@/lib/useAdminGuard";
 import { AdminNav } from "@/components/AdminNav";
@@ -59,6 +59,24 @@ function AdminUsuarios() {
       });
       if (error) throw error;
       toast.success(grant ? `Perfil ${role} concedido` : `Perfil ${role} removido`);
+      qc.invalidateQueries({ queryKey: ["admin-users"] });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro";
+      toast.error(msg);
+    } finally {
+      setPending(null);
+    }
+  }
+
+  async function setAtivo(user_id: string, ativo: boolean) {
+    setPending(`${user_id}:ativo`);
+    try {
+      const { error } = await supabase.rpc("admin_set_courier_ativo", {
+        _user_id: user_id,
+        _ativo: ativo,
+      });
+      if (error) throw error;
+      toast.success(ativo ? "Motoboy ativado" : "Motoboy desativado");
       qc.invalidateQueries({ queryKey: ["admin-users"] });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro";
@@ -160,6 +178,25 @@ function AdminUsuarios() {
                         loading={pending === `${u.user_id}:motoboy`}
                         onClick={() => setRole(u.user_id, "motoboy", !isM)}
                       />
+                      {isM && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={u.courier_ativo ? "outline" : "default"}
+                          disabled={pending === `${u.user_id}:ativo`}
+                          onClick={() => setAtivo(u.user_id, !u.courier_ativo)}
+                          title={u.courier_ativo ? "Desativar login/atuação" : "Aprovar e ativar"}
+                        >
+                          {pending === `${u.user_id}:ativo` ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : u.courier_ativo ? (
+                            <PowerOff className="h-3 w-3 mr-1" />
+                          ) : (
+                            <Power className="h-3 w-3 mr-1" />
+                          )}
+                          {u.courier_ativo ? "Desativar" : "Aprovar"}
+                        </Button>
+                      )}
                     </div>
                   </li>
                 );
