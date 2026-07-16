@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Plus, Search } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SiteHeader } from "@/components/SiteHeader";
+import { TodayHoursCard } from "@/components/TodayHoursCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -158,12 +159,12 @@ function Home() {
             Cervejas, vinhos, destilados e drinks prontos. Peça pelo site,
             confirmamos no WhatsApp e entregamos rapidinho.
           </p>
-          {settings && (
-            <p className="mt-6 text-xs uppercase tracking-widest text-muted-foreground">
-              {settings.horario}
-              {typeof minTaxa === "number" && <> · Entrega a partir de {brl(minTaxa)}</>}
+          <TodayHoursCard />
+          {settings && typeof minTaxa === "number" && (
+            <p className="mt-3 text-xs uppercase tracking-widest text-muted-foreground">
+              Entrega a partir de {brl(minTaxa)}
               {!settings.ativo && (
-                <span className="ml-3 text-destructive">· Fechado agora</span>
+                <span className="ml-3 text-destructive">· Loja desativada</span>
               )}
             </p>
           )}
