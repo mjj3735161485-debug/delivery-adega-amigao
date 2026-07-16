@@ -528,7 +528,7 @@ function Checkout() {
                   {locationMeta && (
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-[11px] text-muted-foreground">
-                        GPS: ±{Math.round(locationMeta.accuracy)}m · atualizado às{" "}
+                        GPS inicial: ±{Math.round(locationMeta.accuracy)}m · {" "}
                         {locationMeta.updatedAt.toLocaleTimeString("pt-BR", {
                           hour: "2-digit",
                           minute: "2-digit",
@@ -548,9 +548,46 @@ function Checkout() {
                         ) : (
                           <RefreshCw className="h-3 w-3 mr-1" />
                         )}
-                        {locating ? "Atualizando…" : "Atualizar GPS"}
+                        {locating ? "Atualizando…" : "Reposicionar pelo GPS"}
                       </Button>
                     </div>
+                  )}
+                  {pinPos && (
+                    <>
+                      <p className="text-[11px] text-amber-400 mt-2">
+                        <b>Arraste o pino</b> até a porta de casa para precisão exata. Toque no mapa também move o pino.
+                      </p>
+                      <CheckoutLocationMap
+                        lat={pinPos.lat}
+                        lng={pinPos.lng}
+                        onChange={handlePinChange}
+                      />
+                      <div className="flex items-center justify-between gap-2 mt-2">
+                        <p className="text-[11px] text-muted-foreground">
+                          {pontoConfirmado
+                            ? "✓ Ponto confirmado. Você pode finalizar o pedido."
+                            : "Confirme o ponto após ajustar o pino."}
+                        </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant={pontoConfirmado ? "secondary" : "default"}
+                          onClick={() => {
+                            setPontoConfirmado(true);
+                            toast.success("Ponto de entrega confirmado.");
+                          }}
+                          className="h-7 px-2 text-xs shrink-0"
+                        >
+                          {pontoConfirmado ? (
+                            <>
+                              <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> Ponto confirmado
+                            </>
+                          ) : (
+                            <>✓ Confirmar este ponto</>
+                          )}
+                        </Button>
+                      </div>
+                    </>
                   )}
                 </div>
               )}
