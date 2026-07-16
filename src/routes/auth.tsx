@@ -26,6 +26,10 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [mode, setMode] = useState<"login" | "signup">("login");
+  const [role, setRole] = useState<"admin" | "motoboy">("motoboy");
+  const [nome, setNome] = useState("");
+  const [telefone, setTelefone] = useState("");
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -52,6 +56,36 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (mode === "signup") {
+        const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
+          email,
+          password,
+          options: { emailRedirectTo: window.location.origin + "/auth" },
+        });
+        if (signUpErr) throw signUpErr;
+        // Se o projeto exigir confirmação de email, não há sessão ainda
+        if (!signUpData.session) {
+          toast.success("Conta criada! Confirme seu email para acessar.");
+          setMode("login");
+          return;
+        }
+        const { data: reg, error: regErr } = await supabase.rpc("self_register_staff", {
+          _role: role,
+          _nome: nome,
+          _telefone: telefone,
+        });
+        if (regErr) throw regErr;
+        const pending = (reg as { pending?: boolean } | null)?.pending;
+        if (role === "motoboy" && pending) {
+          toast.success("Cadastro enviado! Aguarde o admin ativar sua conta.");
+          await supabase.auth.signOut();
+          setMode("login");
+          return;
+        }
+        toast.success("Conta admin criada!");
+        navigate({ to: "/admin/pedidos" });
+        return;
+      }
       const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       const uid = signInData.user?.id;
@@ -93,6 +127,46 @@ function AuthPage() {
           </div>
         </div>
         <form onSubmit={submit} className="space-y-4">
+          {mode === "signup" && (
+            <>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRole("motoboy")}
+                  className={`text-xs py-2 rounded-md border transition ${
+                    role === "motoboy"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Sou motoboy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRole("admin")}
+                  className={`text-xs py-2 rounded-md border transition ${
+                    role === "admin"
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Sou admin
+                </button>
+              </div>
+              <div>
+                <Label htmlFor="nome">Nome completo</Label>
+                <Input id="nome" required value={nome}
+                  onChange={(e) => setNome(e.target.value)} />
+              </div>
+              {role === "motoboy" && (
+                <div>
+                  <Label htmlFor="tel">Telefone (WhatsApp)</Label>
+                  <Input id="tel" required value={telefone}
+                    onChange={(e) => setTelefone(e.target.value)} />
+                </div>
+              )}
+            </>
+          )}
           <div>
             <Label htmlFor="email">Email</Label>
             <Input id="email" type="email" required value={email}
@@ -105,12 +179,23 @@ function AuthPage() {
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Entrar
+            {mode === "login" ? "Entrar" : "Criar conta"}
           </Button>
+          <button
+            type="button"
+            onClick={() => setMode(mode === "login" ? "signup" : "login")}
+            className="w-full text-xs text-muted-foreground hover:text-foreground"
+          >
+            {mode === "login" ? "Criar conta (admin ou motoboy)" : "Já tenho conta"}
+          </button>
+          {mode === "signup" && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              {role === "admin"
+                ? "Cadastro admin só é liberado se ainda não houver nenhum admin."
+                : "Motoboys entram inativos e precisam ser ativados por um admin."}
+            </p>
+          )}
         </form>
-        <p className="text-[11px] text-muted-foreground text-center mt-4">
-          Contas de equipe são criadas pelo admin.
-        </p>
         <div className="mt-6 pt-4 border-t border-border text-center">
           <p className="text-xs text-muted-foreground mb-2">É cliente?</p>
           <Link
