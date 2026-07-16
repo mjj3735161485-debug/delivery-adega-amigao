@@ -1,0 +1,130 @@
+{
+  "version": 1,
+  "sdk_version": "0.22.2",
+  "path": "/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://fytnifmbuktyhgaccmnt.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "adega-amigao-mcp",
+      "version": "0.1.0",
+      "title": "Adega Amigão"
+    },
+    "tools": [
+      {
+        "name": "list_products",
+        "title": "Listar produtos",
+        "description": "Lista o cardápio da Adega Amigão (bebidas disponíveis). Dados públicos.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "category": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 60,
+              "description": "Filtro opcional pelo slug ou nome da categoria."
+            },
+            "only_available": {
+              "type": "boolean",
+              "description": "Se true, retorna apenas produtos marcados como disponíveis."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_orders",
+        "title": "Listar pedidos",
+        "description": "Lista pedidos da Adega Amigão. Admin vê todos; motoboy vê os seus. Filtre por status e limite.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "novo",
+                "em_entrega",
+                "entregue",
+                "cancelado"
+              ],
+              "description": "Filtro opcional pelo status."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_couriers_online",
+        "title": "Motoboys online",
+        "description": "Lista os motoboys atualmente online e sua última localização conhecida. Apenas admin (RLS).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "set_product_availability",
+        "title": "Marcar produto disponível/indisponível",
+        "description": "Ativa ou desativa a disponibilidade de um produto no cardápio. Apenas admin (RLS).",
+        "annotations": {
+          "readOnlyHint": false,
+          "destructiveHint": false,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "product_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "ID do produto."
+            },
+            "disponivel": {
+              "type": "boolean",
+              "description": "true = disponível, false = fora de estoque."
+            }
+          },
+          "required": [
+            "product_id",
+            "disponivel"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
