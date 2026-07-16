@@ -1,0 +1,1 @@
+UPDATE public.store_settings SET whatsapp = '5511963951911', updated_at = now();
