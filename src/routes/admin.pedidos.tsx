@@ -7,6 +7,16 @@ import { useAdminGuard } from "@/lib/useAdminGuard";
 import { Button } from "@/components/ui/button";
 import { brl, formatPhoneBR } from "@/lib/format";
 import { toast } from "sonner";
+import { withCountryCode } from "@/lib/format";
+import { notifyStatus } from "@/lib/notify-status.functions";
+
+const STATUS_LABELS: Record<string, "Recebido" | "Preparando" | "Saiu para entrega" | "Entregue" | null> = {
+  novo: "Recebido",
+  preparo: "Preparando",
+  entrega: "Saiu para entrega",
+  entregue: "Entregue",
+  cancelado: null,
+};
 
 type Order = {
   id: string;
@@ -130,6 +140,21 @@ function AdminPedidos() {
   async function updateStatus(id: string, status: string) {
     const { error } = await supabase.from("orders").update({ status }).eq("id", id);
     if (error) toast.error(error.message);
+    else {
+      const label = STATUS_LABELS[status];
+      const ord = orders.find((o) => o.id === id);
+      if (label && ord?.cliente_telefone) {
+        try {
+          const r = await notifyStatus({
+            data: { telefone: withCountryCode(ord.cliente_telefone), statusPedido: label },
+          });
+          if (r.ok) toast.success(`WhatsApp: ${label}`);
+          else toast.warning(`Status salvo, WhatsApp falhou: ${r.error}`);
+        } catch (e) {
+          console.error("notifyStatus", e);
+        }
+      }
+    }
   }
 
   async function logout() {

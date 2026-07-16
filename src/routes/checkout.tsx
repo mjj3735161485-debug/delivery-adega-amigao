@@ -5,7 +5,7 @@ import { ArrowLeft, Calculator, CheckCircle2, Loader2, MapPin, RefreshCw, Store,
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
 import { useCart } from "@/lib/cart";
-import { brl, formatPhoneBR, onlyDigits } from "@/lib/format";
+import { brl, formatPhoneBR, onlyDigits, withCountryCode } from "@/lib/format";
 import { SiteHeader } from "@/components/SiteHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -474,11 +474,12 @@ function Checkout() {
         const result = await notifyOrder({
           data: {
             nome: parsed.data.cliente_nome,
-            telefone: onlyDigits(parsed.data.cliente_telefone),
+            telefone: withCountryCode(parsed.data.cliente_telefone),
             endereco: isPickup
               ? "Retirada na loja"
               : `${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro ?? ""}`,
             valor: Number(total),
+            tempo: isPickup ? "20 minutos" : "40 minutos",
             itens: items.map((i) => ({
               nome: i.nome,
               quantidade: i.quantidade,
