@@ -340,6 +340,38 @@ function MotoboyPage() {
           </section>
         )}
 
+        {summary && (
+          <section className="rounded-xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Comissão do dia
+              </p>
+              <p className="text-[10px] text-muted-foreground">
+                {comissaoPercent}% sobre taxas
+              </p>
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-lg bg-muted/40 p-3 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Bruta</p>
+                <p className="font-display text-lg text-emerald-400">{brl(comissaoBrutaDia)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">A receber</p>
+                <p className="font-display text-lg text-emerald-400">{brl(comissaoLiquidaDia)}</p>
+              </div>
+              <div className="rounded-lg bg-muted/40 p-3 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Teto</p>
+                <p className="font-display text-lg text-muted-foreground">{brl(limiteDia)}</p>
+              </div>
+            </div>
+            {limiteDia > 0 && comissaoBrutaDia > limiteDia && (
+              <p className="text-[11px] text-yellow-200 mt-2 text-center">
+                Teto diário atingido · recebendo {brl(limiteDia)}
+              </p>
+            )}
+          </section>
+        )}
+
         <section className="rounded-xl border border-emerald-500/40 bg-emerald-500/5 p-4">
           <p className="text-[10px] uppercase tracking-widest text-emerald-300/80">Entrega atual</p>
           {emCurso.length === 0 ? (
