@@ -245,6 +245,19 @@ function MotoboyPage() {
   const totalMes = mesEntregas.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const countMes = mesEntregas.length;
   const mediaMes = countMes > 0 ? totalMes / countMes : 0;
+  // Semana (segunda 00:00 até agora)
+  const inicioSemana = (() => {
+    const d = new Date();
+    const dow = d.getDay(); // 0=dom
+    const diff = dow === 0 ? 6 : dow - 1;
+    d.setDate(d.getDate() - diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+  })();
+  const semanaEntregues = mesEntregas.filter((o) => new Date(o.delivered_at) >= inicioSemana);
+  const countSemana = semanaEntregues.length;
+  const totalSemana = semanaEntregues.reduce((s, o) => s + Number(o.taxa_entrega), 0);
+  const countHoje = hojeEntregues.length;
   const taxaEmCurso = emCurso.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const meta = summary?.meta ?? 0;
   const progresso = meta > 0 ? Math.min(100, (countMes / meta) * 100) : 0;
@@ -278,6 +291,24 @@ function MotoboyPage() {
             Turno de entrega das <strong>19h às 00h</strong>. Fora desse horário você não aparece online para o dono nem para os clientes.
           </div>
         )}
+
+        <section className="grid grid-cols-3 gap-2">
+          <div className="rounded-xl border border-border bg-card p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Hoje</p>
+            <p className="font-display text-2xl text-emerald-400">{countHoje}</p>
+            <p className="text-[11px] font-mono text-muted-foreground">{brl(totalHoje)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Semana</p>
+            <p className="font-display text-2xl text-emerald-400">{countSemana}</p>
+            <p className="text-[11px] font-mono text-muted-foreground">{brl(totalSemana)}</p>
+          </div>
+          <div className="rounded-xl border border-border bg-card p-3 text-center">
+            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Mês</p>
+            <p className="font-display text-2xl text-emerald-400">{countMes}</p>
+            <p className="text-[11px] font-mono text-muted-foreground">{brl(totalMes)}</p>
+          </div>
+        </section>
 
         {meta > 0 && (
           <section className="rounded-xl border border-border bg-card p-4">
