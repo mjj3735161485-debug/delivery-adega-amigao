@@ -102,7 +102,6 @@ function MyAccountPage() {
         nome: form.nome?.trim() || null,
         telefone: form.telefone?.trim() || null,
         endereco_padrao: form.endereco_padrao?.trim() || null,
-        bairro_id: form.bairro_id,
       });
       if (error) throw error;
       toast.success("Dados salvos.");
