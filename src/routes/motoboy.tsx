@@ -283,7 +283,7 @@ function MotoboyPage() {
                   : gpsStatus === "denied"
                     ? "🟡 online · GPS negado"
                     : "🟡 online · aguardando GPS"
-                : "⚪ turno fechado (abre 19h)"}
+                : "⚪ loja fechada"}
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={logout}>
@@ -295,7 +295,10 @@ function MotoboyPage() {
       <main className="mx-auto max-w-2xl px-4 py-6 space-y-6">
         {!inShift && (
           <div className="rounded-lg border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm text-yellow-200">
-            Turno de entrega das <strong>19h às 00h</strong>. Fora desse horário você não aparece online para o dono nem para os clientes.
+            A loja está <strong>fechada</strong> agora. Você só aparece online para o dono e clientes durante o horário configurado no painel.
+            {storeStatus?.proximo && (
+              <> Próxima abertura: <strong>{new Date(storeStatus.proximo).toLocaleString("pt-BR", { weekday: "short", hour: "2-digit", minute: "2-digit" })}</strong>.</>
+            )}
           </div>
         )}
 
@@ -331,31 +334,6 @@ function MotoboyPage() {
             <p className="text-[11px] text-muted-foreground mt-1">
               {progresso >= 100 ? "🎉 Meta batida!" : `Faltam ${meta - countMes} entregas para bater a meta`}
             </p>
-          </section>
-        )}
-
-        {summary && (
-          <section className="rounded-xl border border-border bg-card p-4">
-            <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Comissão do mês</p>
-            <div className="mt-1 grid grid-cols-3 gap-2 text-center">
-              <div>
-                <p className="text-[10px] text-muted-foreground">Bruta ({summary.comissao_percent}%)</p>
-                <p className="font-mono text-sm">{brl(Number(summary.comissao_bruta))}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">A receber</p>
-                <p className="font-mono text-base text-emerald-400">{brl(Number(summary.comissao_liquida))}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-muted-foreground">Teto</p>
-                <p className="font-mono text-sm">{summary.limite > 0 ? brl(Number(summary.limite)) : "—"}</p>
-              </div>
-            </div>
-            {tetoAtingido && (
-              <p className="text-[11px] text-yellow-300 mt-2 text-center">
-                ⚠️ Você atingiu o teto de comissão do mês.
-              </p>
-            )}
           </section>
         )}
 
