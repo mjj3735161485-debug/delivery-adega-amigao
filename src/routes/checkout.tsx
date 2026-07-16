@@ -429,6 +429,34 @@ function Checkout() {
       ];
       const wa = `https://wa.me/${settings?.whatsapp ?? ""}?text=${encodeURIComponent(linhas.join("\n"))}`;
       window.open(wa, "_blank");
+
+      // Notifica a API WhatsApp externa (POST ${API_URL}/pedido)
+      try {
+        const result = await notifyOrder({
+          data: {
+            nome: parsed.data.cliente_nome,
+            telefone: onlyDigits(parsed.data.cliente_telefone),
+            endereco: isPickup
+              ? "Retirada na loja"
+              : `${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro ?? ""}`,
+            valor: Number(total),
+            itens: items.map((i) => ({
+              nome: i.nome,
+              quantidade: i.quantidade,
+              preco: i.preco,
+            })),
+          },
+        });
+        if (result.ok) {
+          toast.success("Pedido enviado com sucesso!");
+        } else {
+          toast.warning(`Pedido salvo, mas falha ao notificar API: ${result.error}`);
+        }
+      } catch (notifyErr) {
+        console.error("notifyOrder", notifyErr);
+        toast.warning("Pedido salvo, mas falha ao notificar API externa.");
+      }
+
       clear();
       navigate({
         to: "/pedido/$numero",
