@@ -743,7 +743,7 @@ function Checkout() {
                         <span className="text-[10px] text-muted-foreground">Débito ou crédito</span>
                       )}
                       {p === "Misto" && (
-                        <span className="text-[10px] text-muted-foreground">Cartão + dinheiro</span>
+                        <span className="text-[10px] text-muted-foreground">Cartão/Pix + dinheiro</span>
                       )}
                     </div>
                   </Label>
@@ -759,7 +759,26 @@ function Checkout() {
               return (
                 <div className="space-y-3 rounded-md border border-primary/30 bg-primary/5 p-3">
                   <div>
-                    <Label htmlFor="vcartao">Valor no cartão *</Label>
+                    <Label>Parte não-dinheiro *</Label>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      {(["Cartão", "Pix"] as const).map((m) => (
+                        <button
+                          key={m}
+                          type="button"
+                          onClick={() => setForm({ ...form, metodo_misto: m })}
+                          className={`border rounded-md p-2 text-sm transition ${
+                            form.metodo_misto === m
+                              ? "border-primary bg-primary/10"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <Label htmlFor="vcartao">Valor no {form.metodo_misto} *</Label>
                     <Input id="vcartao" inputMode="decimal" placeholder="Ex: 130"
                       value={form.valor_cartao}
                       onChange={(e) => setForm({ ...form, valor_cartao: e.target.value })} />
