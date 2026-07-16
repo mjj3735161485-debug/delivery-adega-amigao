@@ -230,6 +230,8 @@ export type Database = {
           created_at: string
           customer_user_id: string | null
           delivered_at: string | null
+          destino_lat: number | null
+          destino_lng: number | null
           endereco: string
           id: string
           numero: number
@@ -252,6 +254,8 @@ export type Database = {
           created_at?: string
           customer_user_id?: string | null
           delivered_at?: string | null
+          destino_lat?: number | null
+          destino_lng?: number | null
           endereco: string
           id?: string
           numero?: number
@@ -274,6 +278,8 @@ export type Database = {
           created_at?: string
           customer_user_id?: string | null
           delivered_at?: string | null
+          destino_lat?: number | null
+          destino_lng?: number | null
           endereco?: string
           id?: string
           numero?: number
