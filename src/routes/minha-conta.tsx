@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SiteHeader } from "@/components/SiteHeader";
 import { brl, formatPhoneBR } from "@/lib/format";
 import { toast } from "sonner";
@@ -77,19 +76,6 @@ function MyAccountPage() {
     })();
     return () => { mounted = false; };
   }, [navigate]);
-
-  const { data: areas = [] } = useQuery({
-    queryKey: ["delivery-areas"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("delivery_areas")
-        .select("id, bairro, taxa")
-        .eq("ativo", true)
-        .order("bairro");
-      if (error) throw error;
-      return data as { id: string; bairro: string; taxa: number }[];
-    },
-  });
 
   const { data: orders = [] } = useQuery({
     queryKey: ["my-orders", userId],
