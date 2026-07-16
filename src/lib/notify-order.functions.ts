@@ -6,6 +6,7 @@ export type NotifyOrderInput = {
   valor: number;
   endereco: string;
   telefone: string;
+  tempo?: string;
 };
 
 export const notifyOrder = createServerFn({ method: "POST" })
@@ -28,7 +29,8 @@ export const notifyOrder = createServerFn({ method: "POST" })
         body: JSON.stringify({
           nome: data.nome,
           itens: data.itens,
-          valor: data.valor,
+          valor: String(data.valor),
+          tempo: data.tempo ?? "40 minutos",
           endereco: data.endereco,
           telefone: data.telefone,
         }),
