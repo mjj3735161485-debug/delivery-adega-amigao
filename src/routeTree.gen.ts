@@ -30,6 +30,7 @@ import { Route as AdminEntregasRouteImport } from './routes/admin.entregas'
 import { Route as AdminConfigRouteImport } from './routes/admin.config'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as AdminMotoboysIdRouteImport } from './routes/admin.motoboys.$id'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
@@ -140,6 +141,11 @@ const Char91DotmcpChar93ListToolsRoute =
     path: '/.mcp/list-tools',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AdminMotoboysIdRoute = AdminMotoboysIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AdminMotoboysRoute,
+} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -168,7 +174,7 @@ export interface FileRoutesByFullPath {
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
   '/admin/horarios': typeof AdminHorariosRoute
-  '/admin/motoboys': typeof AdminMotoboysRoute
+  '/admin/motoboys': typeof AdminMotoboysRouteWithChildren
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
@@ -176,6 +182,7 @@ export interface FileRoutesByFullPath {
   '/pedido/$numero': typeof PedidoNumeroRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/motoboys/$id': typeof AdminMotoboysIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -193,7 +200,7 @@ export interface FileRoutesByTo {
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
   '/admin/horarios': typeof AdminHorariosRoute
-  '/admin/motoboys': typeof AdminMotoboysRoute
+  '/admin/motoboys': typeof AdminMotoboysRouteWithChildren
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
@@ -201,6 +208,7 @@ export interface FileRoutesByTo {
   '/pedido/$numero': typeof PedidoNumeroRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/motoboys/$id': typeof AdminMotoboysIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -219,7 +227,7 @@ export interface FileRoutesById {
   '/admin/config': typeof AdminConfigRoute
   '/admin/entregas': typeof AdminEntregasRoute
   '/admin/horarios': typeof AdminHorariosRoute
-  '/admin/motoboys': typeof AdminMotoboysRoute
+  '/admin/motoboys': typeof AdminMotoboysRouteWithChildren
   '/admin/nao-classificados': typeof AdminNaoClassificadosRoute
   '/admin/pedidos': typeof AdminPedidosRoute
   '/admin/produtos': typeof AdminProdutosRoute
@@ -227,6 +235,7 @@ export interface FileRoutesById {
   '/pedido/$numero': typeof PedidoNumeroRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/admin/motoboys/$id': typeof AdminMotoboysIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -254,6 +263,7 @@ export interface FileRouteTypes {
     | '/pedido/$numero'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/motoboys/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -279,6 +289,7 @@ export interface FileRouteTypes {
     | '/pedido/$numero'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/motoboys/$id'
   id:
     | '__root__'
     | '/'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/pedido/$numero'
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
+    | '/admin/motoboys/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -322,7 +334,7 @@ export interface RootRouteChildren {
   AdminConfigRoute: typeof AdminConfigRoute
   AdminEntregasRoute: typeof AdminEntregasRoute
   AdminHorariosRoute: typeof AdminHorariosRoute
-  AdminMotoboysRoute: typeof AdminMotoboysRoute
+  AdminMotoboysRoute: typeof AdminMotoboysRouteWithChildren
   AdminNaoClassificadosRoute: typeof AdminNaoClassificadosRoute
   AdminPedidosRoute: typeof AdminPedidosRoute
   AdminProdutosRoute: typeof AdminProdutosRoute
@@ -481,6 +493,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/motoboys/$id': {
+      id: '/admin/motoboys/$id'
+      path: '/$id'
+      fullPath: '/admin/motoboys/$id'
+      preLoaderRoute: typeof AdminMotoboysIdRouteImport
+      parentRoute: typeof AdminMotoboysRoute
+    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -497,6 +516,18 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AdminMotoboysRouteChildren {
+  AdminMotoboysIdRoute: typeof AdminMotoboysIdRoute
+}
+
+const AdminMotoboysRouteChildren: AdminMotoboysRouteChildren = {
+  AdminMotoboysIdRoute: AdminMotoboysIdRoute,
+}
+
+const AdminMotoboysRouteWithChildren = AdminMotoboysRoute._addFileChildren(
+  AdminMotoboysRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
@@ -515,7 +546,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminConfigRoute: AdminConfigRoute,
   AdminEntregasRoute: AdminEntregasRoute,
   AdminHorariosRoute: AdminHorariosRoute,
-  AdminMotoboysRoute: AdminMotoboysRoute,
+  AdminMotoboysRoute: AdminMotoboysRouteWithChildren,
   AdminNaoClassificadosRoute: AdminNaoClassificadosRoute,
   AdminPedidosRoute: AdminPedidosRoute,
   AdminProdutosRoute: AdminProdutosRoute,
