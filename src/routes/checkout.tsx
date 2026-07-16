@@ -474,11 +474,12 @@ function Checkout() {
         const result = await notifyOrder({
           data: {
             nome: parsed.data.cliente_nome,
-            telefone: onlyDigits(parsed.data.cliente_telefone),
+            telefone: withCountryCode(parsed.data.cliente_telefone),
             endereco: isPickup
               ? "Retirada na loja"
               : `${(parsed.data as z.infer<typeof deliverySchema>).endereco} — ${detected?.bairro ?? ""}`,
             valor: Number(total),
+            tempo: isPickup ? "20 minutos" : "40 minutos",
             itens: items.map((i) => ({
               nome: i.nome,
               quantidade: i.quantidade,
