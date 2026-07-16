@@ -441,6 +441,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      _norm_bairro: { Args: { _s: string }; Returns: string }
       accept_order: { Args: { _numero: number }; Returns: Json }
       admin_month_report: { Args: { _ref: string }; Returns: Json }
       admin_register_courier: {
@@ -468,6 +469,8 @@ export type Database = {
       }
       is_store_open: { Args: never; Returns: Json }
       mark_delivered: { Args: { _numero: number }; Returns: Json }
+      match_delivery_fee: { Args: { _candidates: string[] }; Returns: Json }
+      min_delivery_fee: { Args: never; Returns: number }
       place_order: { Args: { _items: Json; _order: Json }; Returns: Json }
       self_register_staff: {
         Args: { _nome: string; _role: string; _telefone: string }
