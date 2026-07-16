@@ -21,6 +21,7 @@ type Order = {
   taxa_entrega: number;
   total: number;
   status: string;
+  tipo_entrega: string;
   created_at: string;
 };
 type Item = {
@@ -93,6 +94,19 @@ function AdminPedidos() {
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [ready, isAdmin, qc]);
+
+  // Auto-avanço dos pedidos de RETIRADA a cada minuto (5min por etapa)
+  useEffect(() => {
+    if (!ready || !isAdmin) return;
+    const tick = async () => {
+      try {
+        await supabase.rpc("auto_advance_pickup_orders", { _minutes: 5 });
+      } catch { /* noop */ }
+    };
+    void tick();
+    const iv = setInterval(tick, 60_000);
+    return () => clearInterval(iv);
+  }, [ready, isAdmin]);
 
   // Detectar novos pedidos
   useEffect(() => {
