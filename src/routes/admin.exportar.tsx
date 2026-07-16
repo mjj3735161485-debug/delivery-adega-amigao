@@ -1,0 +1,232 @@
+import { useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { FileDown, Loader2 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { supabase } from "@/integrations/supabase/client";
+import { useAdminGuard } from "@/lib/useAdminGuard";
+import { AdminNav } from "@/components/AdminNav";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { brl } from "@/lib/format";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/admin/exportar")({
+  component: ExportarPage,
+  head: () => ({
+    meta: [
+      { title: "Exportar entregas — Adega Amigão" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
+});
+
+type Courier = {
+  id: string;
+  nome: string;
+  comissao_percent: number;
+  diaria: number;
+};
+
+type Entrega = {
+  numero: number;
+  cliente_nome: string;
+  bairro: string | null;
+  taxa_entrega: number;
+  total: number;
+  pagamento: string;
+  delivered_at: string;
+  tipo_entrega: string;
+};
+
+function todayISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function ExportarPage() {
+  const { ready, isAdmin } = useAdminGuard();
+  const [from, setFrom] = useState(todayISO());
+  const [to, setTo] = useState(todayISO());
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const { data: couriers = [] } = useQuery({
+    queryKey: ["admin", "couriers-export"],
+    enabled: ready && isAdmin,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("couriers")
+        .select("id, nome, comissao_percent, diaria")
+        .order("nome");
+      if (error) throw error;
+      return data as Courier[];
+    },
+  });
+
+  async function fetchDeliveries(courierId: string) {
+    const { data, error } = await supabase.rpc("admin_courier_deliveries_range", {
+      _courier_id: courierId,
+      _from: from,
+      _to: to,
+    });
+    if (error) throw error;
+    return (data ?? []) as Entrega[];
+  }
+
+  async function exportCSV(c: Courier) {
+    setLoadingId(c.id + ":csv");
+    try {
+      const rows = await fetchDeliveries(c.id);
+      const header = ["Numero", "Data/Hora", "Cliente", "Bairro", "Tipo", "Pagamento", "Taxa", "Total"];
+      const lines = [header.join(";")];
+      let taxaTotal = 0;
+      for (const r of rows) {
+        taxaTotal += Number(r.taxa_entrega || 0);
+        lines.push([
+          r.numero,
+          new Date(r.delivered_at).toLocaleString("pt-BR"),
+          `"${(r.cliente_nome ?? "").replace(/"/g, '""')}"`,
+          `"${r.bairro ?? ""}"`,
+          r.tipo_entrega,
+          r.pagamento,
+          Number(r.taxa_entrega || 0).toFixed(2).replace(".", ","),
+          Number(r.total || 0).toFixed(2).replace(".", ","),
+        ].join(";"));
+      }
+      const comissao = (taxaTotal * Number(c.comissao_percent || 0)) / 100;
+      lines.push("");
+      lines.push(`Total taxas;${taxaTotal.toFixed(2).replace(".", ",")}`);
+      lines.push(`Comissao (${c.comissao_percent}%);${comissao.toFixed(2).replace(".", ",")}`);
+      lines.push(`Diaria;${Number(c.diaria || 0).toFixed(2).replace(".", ",")}`);
+      lines.push(`Total a pagar;${(comissao + Number(c.diaria || 0)).toFixed(2).replace(".", ",")}`);
+      const blob = new Blob(["\uFEFF" + lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, `entregas_${slug(c.nome)}_${from}_${to}.csv`);
+      toast.success(`CSV gerado (${rows.length} entregas)`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao gerar CSV");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  async function exportPDF(c: Courier) {
+    setLoadingId(c.id + ":pdf");
+    try {
+      const rows = await fetchDeliveries(c.id);
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text(`Fechamento — ${c.nome}`, 14, 16);
+      doc.setFontSize(10);
+      doc.text(`Período: ${new Date(from).toLocaleDateString("pt-BR")} a ${new Date(to).toLocaleDateString("pt-BR")}`, 14, 23);
+
+      const taxaTotal = rows.reduce((s, r) => s + Number(r.taxa_entrega || 0), 0);
+      const comissao = (taxaTotal * Number(c.comissao_percent || 0)) / 100;
+      const dias = new Set(rows.map(r => new Date(r.delivered_at).toDateString())).size;
+      const diariaTotal = Number(c.diaria || 0) * Math.max(1, dias);
+
+      autoTable(doc, {
+        startY: 30,
+        head: [["#", "Quando", "Cliente", "Bairro", "Tipo", "Pgto", "Taxa", "Total"]],
+        body: rows.map(r => [
+          r.numero,
+          new Date(r.delivered_at).toLocaleString("pt-BR"),
+          r.cliente_nome ?? "",
+          r.bairro ?? "—",
+          r.tipo_entrega,
+          r.pagamento,
+          brl(Number(r.taxa_entrega || 0)),
+          brl(Number(r.total || 0)),
+        ]),
+        styles: { fontSize: 8 },
+        headStyles: { fillColor: [30, 30, 30] },
+      });
+
+      const finalY = (doc as any).lastAutoTable.finalY + 8;
+      doc.setFontSize(11);
+      doc.text(`Entregas: ${rows.length}   ·   Dias trabalhados: ${dias}`, 14, finalY);
+      doc.text(`Total taxas: ${brl(taxaTotal)}`, 14, finalY + 6);
+      doc.text(`Comissão (${c.comissao_percent}%): ${brl(comissao)}`, 14, finalY + 12);
+      doc.text(`Diária (${dias} dia${dias > 1 ? "s" : ""}): ${brl(diariaTotal)}`, 14, finalY + 18);
+      doc.setFontSize(13);
+      doc.text(`Total a pagar: ${brl(comissao + diariaTotal)}`, 14, finalY + 28);
+
+      doc.save(`fechamento_${slug(c.nome)}_${from}_${to}.pdf`);
+      toast.success(`PDF gerado (${rows.length} entregas)`);
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao gerar PDF");
+    } finally {
+      setLoadingId(null);
+    }
+  }
+
+  if (!ready) return <div className="p-8 text-muted-foreground">Carregando...</div>;
+  if (!isAdmin) return <div className="p-8 text-center">Sem permissão.</div>;
+
+  return (
+    <div className="min-h-screen">
+      <AdminNav title="Exportar entregas" />
+      <main className="mx-auto max-w-4xl px-4 py-6 space-y-6">
+        <section className="rounded-lg border border-border p-4 bg-muted/20 grid grid-cols-1 sm:grid-cols-3 gap-3 items-end">
+          <div>
+            <Label htmlFor="from">De</Label>
+            <Input id="from" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+          </div>
+          <div>
+            <Label htmlFor="to">Até</Label>
+            <Input id="to" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Escolha o período e gere PDF ou CSV para cada motoboy. O PDF traz o fechamento com comissão + diária.
+          </p>
+        </section>
+
+        <section className="space-y-2">
+          {couriers.length === 0 && (
+            <p className="text-muted-foreground text-sm">Nenhum motoboy cadastrado.</p>
+          )}
+          {couriers.map((c) => (
+            <div key={c.id} className="rounded-lg border border-border p-3 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{c.nome}</p>
+                <p className="text-xs text-muted-foreground">
+                  Comissão {c.comissao_percent}% · diária {brl(Number(c.diaria || 0))}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline"
+                  onClick={() => exportCSV(c)}
+                  disabled={loadingId !== null}>
+                  {loadingId === c.id + ":csv" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileDown className="h-4 w-4 mr-1" />}
+                  CSV
+                </Button>
+                <Button size="sm"
+                  onClick={() => exportPDF(c)}
+                  disabled={loadingId !== null}>
+                  {loadingId === c.id + ":pdf" ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <FileDown className="h-4 w-4 mr-1" />}
+                  PDF
+                </Button>
+              </div>
+            </div>
+          ))}
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function slug(s: string) {
+  return s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
