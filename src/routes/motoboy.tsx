@@ -258,7 +258,7 @@ function MotoboyPage() {
 
   const hojeEntregues = mine.filter((o) => o.delivered_at && new Date(o.delivered_at).toDateString() === new Date().toDateString());
   const totalHoje = hojeEntregues.reduce((s, o) => s + Number(o.taxa_entrega), 0);
-  const emCurso = mine.filter((o) => !o.delivered_at);
+  const emCurso = mine.filter((o) => !o.delivered_at && o.status !== "cancelado");
   const totalMes = mesEntregas.reduce((s, o) => s + Number(o.taxa_entrega), 0);
   const countMes = mesEntregas.length;
   const mediaMes = countMes > 0 ? totalMes / countMes : 0;

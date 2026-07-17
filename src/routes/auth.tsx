@@ -75,10 +75,15 @@ function AuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const fd = new FormData(e.currentTarget as HTMLFormElement);
+      const emailVal = String(fd.get("email") ?? email).trim();
+      const pwdVal = String(fd.get("password") ?? password);
+      if (emailVal !== email) setEmail(emailVal);
+      if (pwdVal !== password) setPassword(pwdVal);
       if (mode === "signup") {
         const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({
-          email,
-          password,
+          email: emailVal,
+          password: pwdVal,
           options: { emailRedirectTo: window.location.origin + "/auth" },
         });
         if (signUpErr) throw signUpErr;
@@ -105,7 +110,7 @@ function AuthPage() {
         navigate({ to: "/admin/pedidos" });
         return;
       }
-      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data: signInData, error } = await supabase.auth.signInWithPassword({ email: emailVal, password: pwdVal });
       if (error) throw error;
       const uid = signInData.user?.id;
       if (!uid) throw new Error("Sessão inválida");
@@ -188,12 +193,13 @@ function AuthPage() {
           )}
           <div>
             <Label htmlFor="email">Email</Label>
-            <Input id="email" type="email" required value={email}
+            <Input id="email" name="email" type="email" required autoComplete="email" value={email}
               onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="pwd">Senha</Label>
-            <Input id="pwd" type="password" required minLength={6}
+            <Input id="pwd" name="password" type="password" required minLength={4}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>

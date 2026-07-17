@@ -264,6 +264,7 @@ export type Database = {
           numero: number
           observacoes: string | null
           pagamento: string
+          rota_iniciada_at: string | null
           status: string
           status_updated_at: string
           subtotal: number
@@ -290,6 +291,7 @@ export type Database = {
           numero?: number
           observacoes?: string | null
           pagamento: string
+          rota_iniciada_at?: string | null
           status?: string
           status_updated_at?: string
           subtotal: number
@@ -316,6 +318,7 @@ export type Database = {
           numero?: number
           observacoes?: string | null
           pagamento?: string
+          rota_iniciada_at?: string | null
           status?: string
           status_updated_at?: string
           subtotal?: number
@@ -473,6 +476,10 @@ export type Database = {
       auto_advance_pickup_orders: { Args: { _minutes?: number }; Returns: Json }
       cancel_order_by_customer: {
         Args: { _numero: number; _token: string }
+        Returns: Json
+      }
+      courier_active_load: {
+        Args: { _courier_id: string; _numero: number }
         Returns: Json
       }
       courier_month_summary: {

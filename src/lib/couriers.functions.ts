@@ -6,7 +6,7 @@ const schema = z.object({
   nome: z.string().trim().min(2).max(80),
   telefone: z.string().trim().min(8).max(20),
   email: z.string().trim().email().max(120),
-  senha: z.string().min(6).max(72),
+  senha: z.string().min(4).max(72),
 });
 
 export const adminCreateCourier = createServerFn({ method: "POST" })
