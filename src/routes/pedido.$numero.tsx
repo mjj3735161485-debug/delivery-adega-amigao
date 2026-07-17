@@ -327,14 +327,87 @@ function LiveTracker({
   const [alertsOn, setAlertsOn] = useState(false);
   const [etaSec, setEtaSec] = useState<number | null>(null);
   const [routeDist, setRouteDist] = useState<number | null>(null);
+  const [load, setLoad] = useState<{ total: number; minha_posicao: number } | null>(null);
+  const [nowTick, setNowTick] = useState(Date.now());
   const audioCtx = useRef<AudioContext | null>(null);
   const alertKey = `adega-arriving-${numero}`;
+  const routeStartKey = `adega-routestart-${numero}`;
   const routeFn = useServerFn(computeRoute);
 
   const cLat = courier.lat;
   const cLng = courier.lng;
   const dLat = courier.destino_lat;
   const dLng = courier.destino_lng;
+
+  // Tick para detectar "sem sinal"
+  useEffect(() => {
+    const i = setInterval(() => setNowTick(Date.now()), 5_000);
+    return () => clearInterval(i);
+  }, []);
+
+  const presenceAgeSec = courier.presence_updated_at
+    ? Math.round((nowTick - new Date(courier.presence_updated_at).getTime()) / 1000)
+    : null;
+  const stale = presenceAgeSec != null && presenceAgeSec > 25;
+
+  // Carga do motoboy (quantas entregas ativas + posição desta)
+  useEffect(() => {
+    if (!courier.courier_id) return;
+    let cancelled = false;
+    async function fetchLoad() {
+      const { data, error } = await supabase.rpc("courier_active_load", {
+        _courier_id: courier.courier_id!,
+        _numero: Number(numero),
+      });
+      if (!cancelled && !error && data) {
+        setLoad(data as { total: number; minha_posicao: number });
+      }
+    }
+    void fetchLoad();
+    const i = setInterval(fetchLoad, 20_000);
+    return () => { cancelled = true; clearInterval(i); };
+  }, [courier.courier_id, numero]);
+
+  // Alerta: motoboy saiu em direção à casa deste cliente
+  useEffect(() => {
+    if (!courier.rota_iniciada_at) return;
+    if (typeof window === "undefined") return;
+    const key = routeStartKey;
+    if (sessionStorage.getItem(key) === "1") return;
+    sessionStorage.setItem(key, "1");
+    toast.success("🛵 O motoboy saiu em direção à sua casa!", {
+      description: "Fique atento, ele está a caminho.",
+      duration: 15000,
+    });
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        new Notification("Motoboy a caminho!", {
+          body: "Ele acabou de sair para entregar seu pedido.",
+        });
+      } catch { /* noop */ }
+    }
+    try {
+      const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
+      if (AC) {
+        if (!audioCtx.current) audioCtx.current = new AC();
+        const ctx = audioCtx.current!;
+        if (ctx.state === "suspended") ctx.resume();
+        const now = ctx.currentTime;
+        [0, 0.25].forEach((t) => {
+          const o = ctx.createOscillator();
+          const g = ctx.createGain();
+          o.type = "sine";
+          o.frequency.setValueAtTime(660, now + t);
+          g.gain.setValueAtTime(0.0001, now + t);
+          g.gain.exponentialRampToValueAtTime(0.4, now + t + 0.02);
+          g.gain.exponentialRampToValueAtTime(0.0001, now + t + 0.2);
+          o.connect(g).connect(ctx.destination);
+          o.start(now + t);
+          o.stop(now + t + 0.25);
+        });
+      }
+    } catch { /* noop */ }
+  }, [courier.rota_iniciada_at, routeStartKey]);
 
   const distMeters =
     cLat != null && cLng != null && dLat != null && dLng != null
