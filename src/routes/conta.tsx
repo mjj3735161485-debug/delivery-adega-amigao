@@ -100,13 +100,18 @@ function CustomerAuthPage() {
     e.preventDefault();
     setLoading(true);
     try {
+      const fd = new FormData(e.currentTarget as HTMLFormElement);
+      const emailVal = String(fd.get("email") ?? email).trim();
+      const pwdVal = String(fd.get("password") ?? password);
+      if (emailVal !== email) setEmail(emailVal);
+      if (pwdVal !== password) setPassword(pwdVal);
       if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: emailVal, password: pwdVal });
         if (error) throw error;
         goNext();
       } else {
         const { error } = await supabase.auth.signUp({
-          email, password,
+          email: emailVal, password: pwdVal,
           options: {
             emailRedirectTo:
               window.location.origin + (safeNext || "/minha-conta"),
@@ -163,12 +168,13 @@ function CustomerAuthPage() {
         <form onSubmit={submit} className="space-y-4">
           <div>
             <Label htmlFor="c-email">Email</Label>
-            <Input id="c-email" type="email" required value={email}
+            <Input id="c-email" name="email" type="email" required autoComplete="email" value={email}
               onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
             <Label htmlFor="c-pwd">Senha</Label>
-            <Input id="c-pwd" type="password" required minLength={6}
+            <Input id="c-pwd" name="password" type="password" required minLength={4}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
