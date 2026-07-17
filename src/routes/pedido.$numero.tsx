@@ -590,11 +590,22 @@ function LiveTracker({
           <div>
             <p className="font-semibold">Seu entregador está a caminho</p>
             <p className="text-xs text-muted-foreground">
-              {courier.nome} · {courier.online ? "online agora" : "aguardando sinal…"}
+              {courier.nome} · {stale ? "⚠ sinal instável — mostrando rota estimada" : courier.online ? "online agora" : "aguardando sinal…"}
               {distMeters != null && (
                 <> · a <strong className="text-primary">{distMeters < 1000 ? `${distMeters} m` : `${(distMeters / 1000).toFixed(1)} km`}</strong></>
               )}
             </p>
+            {load && load.total > 1 && (
+              <p className="text-xs text-amber-300 mt-1">
+                Este motoboy está com <strong>{load.total} entregas</strong>
+                {load.minha_posicao > 0 && <> · seu pedido é o <strong>{load.minha_posicao}º</strong> da rota</>}
+              </p>
+            )}
+            {courier.rota_iniciada_at && (
+              <p className="text-xs text-emerald-300 mt-1">
+                🛵 O motoboy já saiu em direção à sua casa
+              </p>
+            )}
             {etaSec != null && (
               <p className="text-sm mt-1">
                 Chega em <strong className="text-primary">
