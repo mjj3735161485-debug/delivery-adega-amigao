@@ -329,6 +329,7 @@ function LiveTracker({
   const [routeDist, setRouteDist] = useState<number | null>(null);
   const [load, setLoad] = useState<{ total: number; minha_posicao: number } | null>(null);
   const [nowTick, setNowTick] = useState(Date.now());
+  const [loadRefreshKey, setLoadRefreshKey] = useState(0);
   const audioCtx = useRef<AudioContext | null>(null);
   const alertKey = `adega-arriving-${numero}`;
   const routeStartKey = `adega-routestart-${numero}`;
@@ -349,6 +350,26 @@ function LiveTracker({
     ? Math.round((nowTick - new Date(courier.presence_updated_at).getTime()) / 1000)
     : null;
   const stale = presenceAgeSec != null && presenceAgeSec > 25;
+  const staleText =
+    presenceAgeSec == null
+      ? "sem dados"
+      : presenceAgeSec < 60
+        ? `há ${presenceAgeSec}s`
+        : `há ${Math.round(presenceAgeSec / 60)} min`;
+
+  // Realtime: refetch carga e reidrata quando qualquer pedido do motoboy muda
+  useEffect(() => {
+    if (!courier.courier_id) return;
+    const ch = supabase
+      .channel(`live-load-${courier.courier_id}-${numero}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "orders", filter: `courier_id=eq.${courier.courier_id}` },
+        () => setLoadRefreshKey((k) => k + 1),
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [courier.courier_id, numero]);
 
   // Carga do motoboy (quantas entregas ativas + posição desta)
   useEffect(() => {
@@ -366,7 +387,7 @@ function LiveTracker({
     void fetchLoad();
     const i = setInterval(fetchLoad, 20_000);
     return () => { cancelled = true; clearInterval(i); };
-  }, [courier.courier_id, numero]);
+  }, [courier.courier_id, numero, loadRefreshKey]);
 
   // Alerta: motoboy saiu em direção à casa deste cliente
   useEffect(() => {
@@ -379,13 +400,22 @@ function LiveTracker({
       description: "Fique atento, ele está a caminho.",
       duration: 15000,
     });
-    if ("Notification" in window && Notification.permission === "granted") {
-      try {
-        new Notification("Motoboy a caminho!", {
-          body: "Ele acabou de sair para entregar seu pedido.",
-        });
-      } catch { /* noop */ }
-    }
+    (async () => {
+      if (!("Notification" in window)) return;
+      let perm = Notification.permission;
+      if (perm === "default") {
+        try { perm = await Notification.requestPermission(); } catch { /* noop */ }
+      }
+      if (perm === "granted") {
+        try {
+          new Notification("🛵 Motoboy a caminho!", {
+            body: "Ele acabou de sair para entregar seu pedido.",
+            tag: `route-${numero}`,
+            requireInteraction: true,
+          });
+        } catch { /* noop */ }
+      }
+    })();
     try {
       const AC = (window as any).AudioContext || (window as any).webkitAudioContext;
       if (AC) {
@@ -407,7 +437,7 @@ function LiveTracker({
         });
       }
     } catch { /* noop */ }
-  }, [courier.rota_iniciada_at, routeStartKey]);
+  }, [courier.rota_iniciada_at, routeStartKey, numero]);
 
   const distMeters =
     cLat != null && cLng != null && dLat != null && dLng != null
@@ -460,6 +490,7 @@ function LiveTracker({
     if (!mapObj.current || cLat == null || cLng == null) return;
     const g = (window as any).google;
     const pos = { lat: cLat, lng: cLng };
+    const color = stale ? "#9ca3af" : "#f59e0b";
     if (!courierMarker.current) {
       courierMarker.current = new g.maps.Marker({
         position: pos,
@@ -468,7 +499,7 @@ function LiveTracker({
         icon: {
           path: g.maps.SymbolPath.FORWARD_CLOSED_ARROW,
           scale: 6,
-          fillColor: "#f59e0b",
+          fillColor: color,
           fillOpacity: 1,
           strokeColor: "#fff",
           strokeWeight: 2,
@@ -476,6 +507,10 @@ function LiveTracker({
       });
     } else {
       courierMarker.current.setPosition(pos);
+      const icon = courierMarker.current.getIcon();
+      if (icon && typeof icon === "object") {
+        courierMarker.current.setIcon({ ...icon, fillColor: color });
+      }
     }
     // Ajusta viewport para conter os dois pontos
     if (dLat != null && dLng != null) {
@@ -484,7 +519,7 @@ function LiveTracker({
       bounds.extend({ lat: dLat, lng: dLng });
       mapObj.current.fitBounds(bounds, 80);
     }
-  }, [cLat, cLng, dLat, dLng, courier.nome]);
+  }, [cLat, cLng, dLat, dLng, courier.nome, stale]);
 
   // Recalcula rota periodicamente (a cada ~45s ou primeira vez)
   useEffect(() => {
@@ -630,12 +665,26 @@ function LiveTracker({
         </Button>
       </div>
       {mapKey && dLat != null && dLng != null ? (
-        <div
-          ref={mapRef}
-          className="mt-3 w-full rounded-lg border border-border overflow-hidden"
-          style={{ height: 260 }}
-          aria-label="Mapa com rota do entregador"
-        />
+        <div className="relative mt-3">
+          <div
+            ref={mapRef}
+            className="w-full rounded-lg border border-border overflow-hidden"
+            style={{ height: 260 }}
+            aria-label="Mapa com rota do entregador"
+          />
+          {stale && (
+            <div className="absolute top-2 left-2 right-2 rounded-md bg-amber-500/95 text-black text-xs px-3 py-2 shadow-lg flex items-center gap-2 pointer-events-none">
+              <span className="inline-block h-2 w-2 rounded-full bg-red-600 animate-pulse" />
+              <span className="font-semibold">Motoboy sem sinal</span>
+              <span className="opacity-80">· última atualização {staleText} · exibindo rota estimada</span>
+            </div>
+          )}
+          {!stale && presenceAgeSec != null && (
+            <div className="absolute top-2 right-2 rounded-md bg-black/70 text-white text-[10px] px-2 py-1">
+              atualizado {staleText}
+            </div>
+          )}
+        </div>
       ) : (
         <p className="mt-3 text-xs text-muted-foreground">
           Rastreio no mapa indisponível para este endereço.
