@@ -296,11 +296,13 @@ function StatusStepper({ status, pickup }: { status: string; pickup: boolean }) 
 
 type CourierData = {
   nome: string | null;
+  courier_id: string | null;
   lat: number | null;
   lng: number | null;
   online: boolean;
   accepted_at: string | null;
   delivered_at: string | null;
+  rota_iniciada_at: string | null;
   endereco: string | null;
   destino_lat: number | null;
   destino_lng: number | null;
