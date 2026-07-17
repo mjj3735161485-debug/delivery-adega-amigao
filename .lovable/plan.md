@@ -1,42 +1,54 @@
+## Objetivo
+Ajustar painel do motoboy, autofill do Google no login, mínimo de senha em 4 caracteres, e melhorar rastreio do cliente.
 
-## Contexto e limitação real
+## 1. Painel do motoboy — esconder cancelados alheios
+Arquivo: `src/routes/motoboy.tsx`
+- Lista de "pedidos disponíveis" já filtra por `status='novo'`, cancelados somem naturalmente.
+- Ajustar query de "meus pedidos" para incluir `cancelado` **apenas quando `courier_id = eu`**.
+- Toast de cancelamento (Realtime) só dispara se `courier_id` for o do motoboy logado.
 
-O navegador **não consegue GPS de 1 metro** — é limitação física do hardware, não do código:
+## 2. Autofill do Google no login
+Arquivos: `src/routes/auth.tsx`, `src/routes/conta.tsx`, `src/routes/reset-password.tsx`
+- Adicionar `autoComplete="email"` / `"current-password"` / `"new-password"` nos inputs.
+- Ler valores via `FormData` no submit (não depender só do `useState`) — corrige "senha incorreta" quando Chrome/Google preenche sem disparar `onChange`.
+- `.trim()` no email antes do `signInWithPassword`.
 
-- Celular ao ar livre: ~5–15 m (melhor caso)
-- Celular em ambiente coberto: ~20–80 m
-- Desktop (Wi-Fi/IP): 100–2000 m — foi o que te deu 200 m
+## 3. Senha — mínimo 4 caracteres (qualquer tipo)
+Manter mínimo de **4** caracteres, aceitando qualquer combinação (letras, números, símbolos), sem regra de complexidade.
+- **Backend**: `supabase--configure_auth` para `password_min_length = 4` sem exigência de tipos.
+- **Frontend**: trocar `minLength={6}` por `minLength={4}` em:
+  - `src/routes/auth.tsx` (admin/motoboy)
+  - `src/routes/conta.tsx` (cliente)
+  - `src/routes/reset-password.tsx`
 
-Como você precisa de **precisão de 1 m de verdade**, a única forma confiável é o próprio cliente confirmar o ponto exato no mapa. O plano abaixo faz isso: GPS entrega o ponto inicial, o cliente **arrasta o pino até a porta de casa** (precisão de 1 m garantida por interação humana), e o pedido só é liberado depois dessa confirmação.
+## 4. Rastreio do motoboy — melhorias
+Arquivo: `src/routes/pedido.$numero.tsx` + `src/lib/route.functions.ts` + `src/lib/couriers.functions.ts`
 
-## O que muda no checkout
+### 4a. Rota fallback quando motoboy fica sem internet
+- Detectar `presence_updated_at` atrasado (>25s).
+- Mostrar badge "Sinal do motoboy instável — mostrando rota estimada".
+- Manter polyline da última posição conhecida até o endereço (Routes API já existente).
+- Pino com pulse cinza indicando "sem sinal"; volta ao normal quando as posições reaparecem.
 
-1. **Mapa Google Maps embutido** aparece assim que o cliente toca "Usar minha localização".
-2. GPS roda em modo contínuo de alta precisão (`watchPosition`, `enableHighAccuracy:true`, `maximumAge:0`) por até 20 s, guardando sempre a leitura mais precisa. Barra "Melhorando precisão… X m".
-3. Pino do mapa começa na posição do GPS; **cliente arrasta até a porta de casa**. A cada arraste:
-   - Recalcula bairro via `reverseGeocode` na nova coordenada.
-   - Recalcula taxa via `match_delivery_fee` (RPC já existente).
-   - Atualiza endereço textual mostrado abaixo do mapa.
-4. **Selo de confirmação** — só depois de o cliente clicar "✓ Confirmar este ponto" o botão "Finalizar pedido" é liberado. Sem confirmação = sem envio.
-5. **Botão "Reposicionar pelo GPS"** para redisparar a leitura sem cache.
-6. Selo de qualidade do GPS: verde ≤ 20 m, amarelo 20–100 m, vermelho > 100 m (informativo — não bloqueia porque o arraste manual resolve).
-7. Remove qualquer texto que prometa "1 m" via GPS puro; troca por "Arraste o pino até a porta para precisão exata".
+### 4b. "Motoboy tem outras entregas"
+- Nova RPC `courier_active_load(_courier_id uuid)` retornando `{ total, minha_posicao }` (fila por `accepted_at`).
+- Nova server function `getCourierActiveLoad` em `src/lib/couriers.functions.ts`.
+- Se `total > 1`: mostrar no `/pedido/:numero` — "Este motoboy está com **N entregas** — seu pedido é o **Xº** da rota".
 
-## Ajuste no rastreio do motoboy
+### 4c. Alerta "motoboy saiu em direção à sua casa"
+- Nova coluna `orders.rota_iniciada_at timestamptz` (nullable).
+- Trigger AFTER UPDATE em `orders`: quando `delivered_at` é setado, marca o próximo pedido do mesmo `courier_id` (menor `accepted_at` ainda não entregue) com `rota_iniciada_at = now()`.
+- Se o motoboy só tem 1 pedido ativo, marcar `rota_iniciada_at = accepted_at` no momento do `accept_order`.
+- Cliente (`/pedido/:numero`): via Realtime, quando o campo vira não-nulo → som (Web Audio já existe) + toast "🛵 O motoboy saiu em direção à sua casa!" + marco na timeline.
 
-O raio de 1 m para o alerta sonoro (`pedido.$numero.tsx`) fica **impraticável** na prática (GPS do motoboy também sofre): o alerta nunca dispara ou dispara tarde. Vou subir para **10 m** — próximo o bastante para significar "chegou" e dentro da margem real do GPS. Se preferir manter 1 m mesmo assim, me avise.
+## Ordem
+1. Migração SQL (coluna `rota_iniciada_at`, trigger, RPC `courier_active_load`, ajuste em `accept_order`).
+2. `supabase--configure_auth` (senha mínima 4).
+3. `motoboy.tsx` (filtro cancelados).
+4. `auth.tsx` / `conta.tsx` / `reset-password.tsx` (autocomplete + FormData + minLength 4).
+5. `pedido.$numero.tsx` (stale, carga, alerta).
+6. `couriers.functions.ts` (nova função).
 
-## Arquivos afetados
-
-- `src/routes/checkout.tsx` — bloco de localização substituído por: GPS de alta precisão + `<CheckoutLocationMap>` + estado `pontoConfirmado` que gateia o submit.
-- `src/components/CheckoutLocationMap.tsx` (novo) — carrega Maps JS com `VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY`, marcador `draggable:true`, callback `onPositionChange(lat,lng)`.
-- `src/lib/reverse-geocode.ts` — sem mudanças (já em uso).
-- `src/routes/pedido.$numero.tsx` — geofence de 1 m → 10 m + mensagens atualizadas.
-
-Nada no banco muda.
-
-## O que você recebe no final
-
-- Endereço nunca mais sai errado: só envia o pedido após o cliente ter arrastado o pino e confirmado visualmente no mapa.
-- GPS continua ajudando (posiciona o pino perto), mas não é mais a "verdade final".
-- Motoboy recebe coordenadas de 1 m de precisão (as que o cliente confirmou) para a navegação.
+## Fora do escopo
+- Nenhuma exigência de complexidade de senha além do mínimo.
+- Sem alteração no checkout, taxa ou OAuth social.
