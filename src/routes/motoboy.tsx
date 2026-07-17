@@ -97,6 +97,7 @@ function MotoboyPage() {
         .from("orders")
         .select("*")
         .eq("courier_id", courierId!)
+        .neq("status", "cancelado")
         .order("accepted_at", { ascending: false })
         .limit(30);
       if (error) throw error;
