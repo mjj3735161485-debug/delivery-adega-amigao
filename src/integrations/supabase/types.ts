@@ -510,6 +510,7 @@ export type Database = {
         Args: { _nome: string; _role: string; _telefone: string }
         Returns: Json
       }
+      start_route_to_customer: { Args: { _numero: number }; Returns: string }
       update_courier_presence: {
         Args: { _lat: number; _lng: number; _online: boolean }
         Returns: Json
