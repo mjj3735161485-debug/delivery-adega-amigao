@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { LogOut, MapPin, CheckCircle2, Loader2, Target } from "lucide-react";
+import { LogOut, MapPin, CheckCircle2, Loader2, Target, Navigation } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useCourierGuard } from "@/lib/useCourierGuard";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { brl, formatPhoneBR } from "@/lib/format";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { notifyRouteStart } from "@/lib/notify-route-start.functions";
 
 export const Route = createFileRoute("/motoboy")({
   component: MotoboyPage,
@@ -35,6 +37,7 @@ type Order = {
   courier_id: string | null;
   accepted_at: string | null;
   delivered_at: string | null;
+  rota_iniciada_at: string | null;
   created_at: string;
 };
 
@@ -54,6 +57,7 @@ type MonthSummary = {
 function MotoboyPage() {
   const { ready, isCourier, courierId, nome } = useCourierGuard();
   const qc = useQueryClient();
+  const notifyRoute = useServerFn(notifyRouteStart);
   const [gpsStatus, setGpsStatus] = useState<"idle" | "on" | "denied" | "unavailable">("idle");
   const watchRef = useRef<number | null>(null);
   const posRef = useRef<{ lat: number; lng: number } | null>(null);
@@ -233,6 +237,26 @@ function MotoboyPage() {
     if (error) return toast.error(error.message);
     toast.success(`Pedido #${o.numero} entregue`);
     qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
+  }
+
+  async function iniciarRota(o: Order) {
+    const { error } = await supabase.rpc("start_route_to_customer", { _numero: o.numero });
+    if (error) return toast.error(error.message);
+    toast.success(`Rota iniciada · avisando cliente #${o.numero}`);
+    qc.invalidateQueries({ queryKey: ["motoboy", "mine", courierId] });
+    try {
+      const res = await notifyRoute({
+        data: {
+          telefone: o.cliente_telefone,
+          nome: o.cliente_nome,
+          numero: o.numero,
+          motoboy: nome ?? undefined,
+        },
+      });
+      if (!res.ok) toast.error(`WhatsApp: ${res.error}`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Falha ao avisar WhatsApp");
+    }
   }
 
   async function logout() {
@@ -481,6 +505,11 @@ function MotoboyPage() {
                 </p>
                 <p className="text-xs text-muted-foreground">Total do pedido: {brl(Number(o.total))}</p>
                 <div className="mt-3 flex gap-2">
+                  {!o.rota_iniciada_at && (
+                    <Button size="sm" variant="secondary" onClick={() => iniciarRota(o)}>
+                      <Navigation className="h-4 w-4 mr-1" /> Iniciar rota
+                    </Button>
+                  )}
                   <Button size="sm" onClick={() => entregar(o)}>
                     <CheckCircle2 className="h-4 w-4 mr-1" /> Marcar entregue
                   </Button>
