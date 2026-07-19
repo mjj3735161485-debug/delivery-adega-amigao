@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { SiteHeader } from "@/components/SiteHeader";
 import { brl, formatPhoneBR } from "@/lib/format";
 import { toast } from "sonner";
+import { Wallet } from "lucide-react";
 
 export const Route = createFileRoute("/minha-conta")({
   component: MyAccountPage,
@@ -92,6 +93,30 @@ function MyAccountPage() {
     },
   });
 
+  const { data: cashbackBalance = 0 } = useQuery({
+    queryKey: ["cashback-balance", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_my_cashback_balance");
+      if (error) throw error;
+      return Number(data ?? 0);
+    },
+  });
+
+  const { data: cashbackHistory = [] } = useQuery({
+    queryKey: ["cashback-history", userId],
+    enabled: !!userId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cashback_ledger")
+        .select("id, tipo, valor, descricao, created_at")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      return data as { id: string; tipo: string; valor: number; descricao: string | null; created_at: string }[];
+    },
+  });
+
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (!userId) return;
@@ -141,6 +166,35 @@ function MyAccountPage() {
             <LogOut className="h-4 w-4 mr-1" /> Sair
           </Button>
         </div>
+
+        <section className="relative overflow-hidden rounded-xl border border-primary/40 bg-gradient-to-br from-primary/20 via-primary/10 to-transparent p-5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary">
+                <Wallet className="h-4 w-4" /> Cashback
+              </div>
+              <p className="mt-2 font-display text-3xl">{brl(cashbackBalance)}</p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                Você ganha 1% de volta a cada pedido entregue.
+              </p>
+            </div>
+          </div>
+          {cashbackHistory.length > 0 && (
+            <ul className="mt-4 divide-y divide-border/60 border-t border-border/60">
+              {cashbackHistory.slice(0, 5).map((h) => (
+                <li key={h.id} className="py-2 flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground truncate mr-3">
+                    {h.descricao ?? h.tipo}
+                    <span className="ml-2 opacity-70">{new Date(h.created_at).toLocaleDateString("pt-BR")}</span>
+                  </span>
+                  <span className={h.tipo === "debito" ? "text-red-400 font-medium" : "text-emerald-400 font-medium"}>
+                    {h.tipo === "debito" ? "-" : "+"}{brl(Number(h.valor))}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
 
         <form onSubmit={save} className="bg-card border border-border rounded-xl p-5 space-y-4">
           <h2 className="font-display text-lg">Meus dados</h2>
