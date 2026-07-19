@@ -1,14 +1,16 @@
 import { useEffect, useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Wine, User, ListOrdered, Settings } from "lucide-react";
+import { Wine, User, ListOrdered, Settings, Wallet } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CartSheet } from "./CartSheet";
 import { useStoreOpen, formatProximo } from "@/lib/useStoreOpen";
+import { brl } from "@/lib/format";
 
 export function SiteHeader() {
   const [signedIn, setSignedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [uid, setUid] = useState<string | null>(null);
   const storeOpen = useStoreOpen();
   useEffect(() => {
     async function check(uid: string | undefined) {
@@ -23,14 +25,25 @@ export function SiteHeader() {
     }
     supabase.auth.getSession().then(({ data }) => {
       setSignedIn(!!data.session);
+      setUid(data.session?.user.id ?? null);
       check(data.session?.user.id);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_e, sess) => {
       setSignedIn(!!sess);
+      setUid(sess?.user.id ?? null);
       check(sess?.user.id);
     });
     return () => sub.subscription.unsubscribe();
   }, []);
+  const { data: cashback = 0 } = useQuery({
+    queryKey: ["cashback-header", uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("get_my_cashback_balance");
+      if (error) throw error;
+      return Number(data ?? 0);
+    },
+  });
   const { data: s } = useQuery({
     queryKey: ["settings-header"],
     queryFn: async () => {
@@ -77,6 +90,16 @@ export function SiteHeader() {
               <span className={`h-1.5 w-1.5 rounded-full ${storeOpen.data.aberto ? "bg-emerald-400" : "bg-amber-400"}`} />
               {storeOpen.data.aberto ? "Aberto" : "Fechado"}
             </span>
+          )}
+          {signedIn && cashback > 0 && (
+            <Link
+              to="/minha-conta"
+              aria-label="Meu cashback"
+              className="hidden sm:inline-flex items-center gap-1 text-[11px] font-semibold px-2 py-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+            >
+              <Wallet className="h-3.5 w-3.5" />
+              {brl(cashback)}
+            </Link>
           )}
           {signedIn && (
             <Link
