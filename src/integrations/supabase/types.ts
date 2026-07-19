@@ -38,6 +38,44 @@ export type Database = {
         }
         Relationships: []
       }
+      cashback_ledger: {
+        Row: {
+          created_at: string
+          descricao: string | null
+          id: string
+          order_id: string | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          order_id?: string | null
+          tipo: string
+          user_id: string
+          valor: number
+        }
+        Update: {
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          order_id?: string | null
+          tipo?: string
+          user_id?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cashback_ledger_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       categories: {
         Row: {
           created_at: string
@@ -391,6 +429,7 @@ export type Database = {
       store_settings: {
         Row: {
           ativo: boolean
+          cashback_percent: number
           endereco: string
           horario: string
           id: number
@@ -402,6 +441,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          cashback_percent?: number
           endereco?: string
           horario?: string
           id?: number
@@ -413,6 +453,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          cashback_percent?: number
           endereco?: string
           horario?: string
           id?: number
@@ -490,6 +531,7 @@ export type Database = {
         Args: { _numero: number; _token: string }
         Returns: Json
       }
+      get_my_cashback_balance: { Args: never; Returns: number }
       get_order_by_token: {
         Args: { _numero: number; _token: string }
         Returns: Json
